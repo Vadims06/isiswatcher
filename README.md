@@ -11,8 +11,19 @@ The FRR container has `network_mode=host` so it sees the GRE tunnel, which is co
 > **Note**  
 > isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38), it means that IS-IS network changes can be shown on the network graph.
 ### Functional Role
-Watcher stores topology events/state to show historical network state, whereas Topolograph exhibits present network state and potential future outcomes.
+Watcher stores topology events/state to show historical network state, whereas Topolograph exhibits present network state and potential future outcomes.   
 ![](./docs/functional-watcher-role.png)
+
+### Supported IS-IS TLV 
+| TLV name                         | TLV |
+|----------------------------------|-----|
+| IS Reachability                  | 2   |
+| Extended IS Reachability   (new) | 22  |
+| IPv4 Internal Reachability (old) | 128 |
+| IPv4 External Reachability (old) | 130 |
+| Extended IPv4 Reachability (new) | 135 |
+| IPv6 Reachability                | 236 |  
+
 ## Demo
 The demo shows how IS-IS watcher detected:
 * p2p links:
