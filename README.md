@@ -217,6 +217,8 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     > **Note**  
     > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
 
+ ### Minimum FRR version
+ IS-IS over GRE works on FRR 9 versions quay.io/frrouting/frr:9.1.0, like 9.0.0, 9.0.1, 9.0.2, 9.1.0
  ### Minimum Logstash version
  7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
 

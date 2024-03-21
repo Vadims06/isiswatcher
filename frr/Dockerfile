@@ -1,6 +1,6 @@
 ARG FRR_VERSION
 
-FROM frrouting/frr:${FRR_VERSION}
+FROM quay.io/frrouting/frr:${FRR_VERSION}
 
 COPY ./config/isisd.conf /etc/frr/isisd.conf
 #COPY ./config/daemons /etc/frr/daemons
