@@ -1,0 +1,25 @@
+frr defaults traditional
+log file /var/log/frr/isisd.log
+ipv6 forwarding
+!
+!
+password zebra
+enable password zebra
+!
+interface gre1
+ ip router isis vgre1
+ ipv6 router isis vgre1
+ isis csnp-interval 600
+ isis hello-interval 10
+ isis network point-to-point
+ no isis hello padding
+exit
+!
+router isis vgre1
+ net {{system_id}}
+!
+route-map TO_KERNEL deny 200
+exit
+!
+ip protocol isis route-map TO_KERNEL
+ipv6 protocol isis route-map TO_KERNEL

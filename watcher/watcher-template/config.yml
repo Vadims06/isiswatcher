@@ -1,0 +1,54 @@
+name: watcher2-tun1025
+prefix: __lab-name
+
+topology:
+  nodes:
+    isis-watcher:
+      kind: linux
+      image: vadims06/isis-watcher:latest
+      startup-delay: 10
+      stages:
+        create:
+          wait-for:
+            - node: router
+              stage: create
+      env:
+        WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
+        ISISD_DUMP_FILE_DIR: "/var/log/frr/isisd.log"
+        TEST_MODE: "False"
+        FRR_HOST: 127.0.0.1
+        FRR_PORT: "2608"
+      binds:
+        - router/isisd.log:/var/log/frr/isisd.log # FRR -> Watcher
+        - isis-watcher/watcher.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+    router:
+      kind: linux
+      image: quay.io/frrouting/frr:9.1.0 # 9.0.0, 9.0.1, 9.0.2, 9.1.0 IS-IS over GRE works. Doesn't work 8.5.4
+      binds:
+        - router/isisd.log:/var/log/frr/isisd.log
+        - router/daemons:/etc/frr/daemons
+        - router/frr.conf:/etc/frr/frr.conf
+        - router/vtysh.conf:/etc/frr/vtysh.conf
+      # comment it if you use frr from isis-watcher compose file
+      ports:
+       - 65001:2608
+    h1:
+      kind: host
+      startup-delay: 1
+      exec:
+        # assign addresses on p2p link b/w namespace and host
+        - ip netns exec clab-watcher2-tun1025-router ip address add 169.255.1.2/24 dev veth1
+        - ip netns exec clab-watcher2-tun1025-router ip route add 192.168.1.35 via 169.255.1.1
+        - ip address add 169.255.1.1/24 dev vhost1025
+        # setup GRE
+        - ip netns exec clab-watcher2-tun1025-router ip tunnel add gre1 mode gre local 169.255.1.2 remote 192.168.1.35
+        - ip netns exec clab-watcher2-tun1025-router ip address add 10.10.25.33/24 dev gre1
+        - ip netns exec clab-watcher2-tun1025-router ip link set up dev gre1
+        # NAT and Allow rules for GRE
+        - sudo iptables -t nat -A POSTROUTING -p gre -s 169.255.1.2 -d 192.168.1.35 -o eth0 -j MASQUERADE
+        - sudo iptables -t filter -A FORWARD -p gre -s 169.255.1.2/32 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
+        - sudo iptables -t filter -A FORWARD -p gre -s 192.168.1.35 -o vhost1025 -i eth0 -j ACCEPT
+
+
+  links:
+    - endpoints: ["router:veth1", "host:vhost1025"] # type vtap

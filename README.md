@@ -24,6 +24,10 @@ Watcher stores topology events/state to show historical network state, whereas T
 | Extended IPv4 Reachability (new) | 135 |
 | IPv6 Reachability                | 236 |  
 
+### Network architecture  
+Number of watchers is equal to the number of IS-IS areas and each Watcher is placed in individual network namespace. IS-IS LSDB sits in watcher's namespace and doesn't interact with other Watchers keeping it isolated.  
+![](./docs/GRE_FRR_individual_instances.png)  
+
 ## Demo
 The demo shows how IS-IS watcher detected:
 * p2p links:
@@ -98,7 +102,16 @@ xpack.security.enabled: false
 ```  
 > **Note about having Elastic config commented**
 > When the Elastic output plugin fails to connect to the ELK host, it will block all other outputs and it ignores "EXPORT_TO_ELASTICSEARCH_BOOL" value from env file. Regardless of EXPORT_TO_ELASTICSEARCH_BOOL being False, it will connect to Elastic host. The solution - uncomment this portion of config in case of having running ELK.
-4. Setup GRE tunnel from the host to a network device  
+4. Generate configuration files  
+`v1.1` Includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
+```
+sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:v1.1 python3 ./client.py --action add_watcher
+```   
+The script will create:
+1. a folder under `watcher` folder with FRR configuration under `router` folder
+2. a containerlab configuration file with network settings
+3. an individual watcher log file in `watcher` folder.  
+
 It's needed to have a minimum one GRE tunnel to an area, which is needed to be monitored. If the IS-IS domain has multiple areas, setup one GRE in each area. It's a restriction of Link State architecture to know about new/old adjacency or link cost changes via LSPs per area basis only. To stop IS-IS routes from being installed in the host's routing table, we the following policy is applied on the watcher:
 ```bash
 # frr/config/isisd.conf
@@ -107,14 +120,20 @@ exit
 !
 ip protocol isis route-map TO_KERNEL
 ```
-
+GRE tunnel configured in Watcher namespace.  
 ```bash
 sudo modprobe ip_gre
 sudo ip tunnel add tun0 mode gre remote <router-ip> local <host-ip> dev eth0 ttl 255
 sudo ip address add <GRE tunnel ip address> dev tun0
 sudo ip link set tun0 up
 ```
-5. Setup GRE tunnel from the network device to the host. An example for Cisco
+5. Start FRR + Watcher  
+[Install](https://containerlab.srlinux.dev/install/) containerlab
+The first watcher, which uses GRE 1025 is started via the following command:   
+```
+sudo clab deploy --topo watcher/watcher1-tun1025/watcher1-tun1025.yml
+```
+6. Setup GRE tunnel from the network device to the host. An example for Cisco
 
 ```bash
 interface gigabitether0/1
