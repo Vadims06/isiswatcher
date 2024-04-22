@@ -32,7 +32,7 @@ class WATCHER_CONFIG:
         self.gre_tunnel_ip_w_mask_watcher = ""
         self.gre_tunnel_number = 0
         self.isis_area_num = 1
-        self.host_interface_name = "eth0"
+        self.host_interface_device_ip = ""
 
     def gen_next_free_number(self):
         """ Each Watcher installation has own sequense number starting from 1 """
@@ -42,7 +42,7 @@ class WATCHER_CONFIG:
     def get_existed_watchers():
         """ Return a list of watcher folders """
         watcher_root_folder_path = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
-        return [file for file in os.listdir(watcher_root_folder_path) if os.path.isdir(file) and file.startswith("watcher") and not file.endswith("template")]
+        return [file for file in os.listdir(watcher_root_folder_path) if os.path.isdir(os.path.join(watcher_root_folder_path, file)) and file.startswith("watcher") and not file.endswith("template")]
 
     @property
     def p2p_veth_network_obj(self):
@@ -60,6 +60,10 @@ class WATCHER_CONFIG:
     @property
     def p2p_veth_watcher_ip_w_slash_32_mask(self):
         return f"{str(self.p2p_veth_watcher_ip_obj)}/32"
+
+    @property
+    def p2p_veth_watcher_ip(self):
+        return str(self.p2p_veth_watcher_ip_obj)
 
     @property
     def p2p_veth_host_ip_obj(self):
@@ -162,6 +166,7 @@ class WATCHER_CONFIG:
                 src=os.path.join(self.router_template_path, file_name),
                 dst=os.path.join(self.router_folder_path, file_name)
             )
+        os.chmod(os.path.join(self.router_folder_path, "isisd.log"), 0o777)
         # Config generation
         env = Environment(
             loader=FileSystemLoader(self.router_template_path)
@@ -173,7 +178,9 @@ class WATCHER_CONFIG:
                 area_num=str(self.isis_area_num).zfill(4),
                 watcher_num=str(self.watcher_num).zfill(4),
                 gre_num=str(self.gre_tunnel_number).zfill(4),
-        ))
+            ),
+            watcher_name=self.watcher_folder_name,
+        )
         with open(os.path.join(self.router_folder_path, "frr.conf"), "w") as f:
             f.write(frr_config)
         # vtysh.conf
@@ -184,10 +191,11 @@ class WATCHER_CONFIG:
         # containerlab config
         watcher_config_yml = self.watcher_config_template_yml
         watcher_config_yml["name"] = self.watcher_folder_name
-        watcher_config_yml['topology']['nodes'][self.ROUTER_NODE_NAME]['ports'] = [f"{65000+self.watcher_num}:2608"]
-        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env']['FRR_PORT'] = str(65000+self.watcher_num)
         watcher_config_yml['topology']['nodes']['h1']['exec'] = self.exec_cmds()
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
+        # Watcher
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_folder_name}.log:/home/watcher/watcher/logs/watcher.log")
         with open(os.path.join(self.watcher_folder_path, "config.yml"), "w") as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(watcher_config_yml, s)
@@ -202,24 +210,24 @@ class WATCHER_CONFIG:
     def do_print_banner():
         print("""
 +---------------------------+                                        
-|                           |                                        
-|  +------------+           |                                        
-|  | netns FRR  |           |                      +----------------+
-|  |            |           |                      | Network device |
-|  |  gre1   +TunnelIP------+-------------TunnelIP-+                |
-|  |            |Host int eth0                     |                |
-|  |  eth1------+-vhost1    |              Device IP                |
-|  |            |           |                      |                |
-|  +------------+           |                      |                |
-|                           |                      +----------------+
+|  Watcher Host             |                       +-------------------+                                       
+|  +------------+           |                       | Network device    |       
+|  | netns FRR  |           |                       |                   |
+|  |            Tunnel [4]  |                       | Tunnel [4]        |
+|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
+|  |  eth1------+-vhost1    |       +-----+         | IS-IS area num [5]|
+|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
+|  |            |           |       +-----+         |                   |
+|  +------------+           |                       |                   |
+|                           |                       +-------------------+
 +---------------------------+                                        
         """)
 
     def add_watcher_dialog(self):
         while not self.gre_tunnel_network_device_ip:
-            self.gre_tunnel_network_device_ip = self.do_check_ip(input("GRE Tunnel device IP [x.x.x.x]: "))
+            self.gre_tunnel_network_device_ip = self.do_check_ip(input("[1]Network device IP [x.x.x.x]: "))
         while not self.gre_tunnel_ip_w_mask_network_device:
-            self.gre_tunnel_ip_w_mask_network_device = input("GRE Tunnel IP on device with mask [x.x.x.x/yy]: ")
+            self.gre_tunnel_ip_w_mask_network_device = input("[2]GRE Tunnel IP on network device with mask [x.x.x.x/yy]: ")
             if not self.do_check_ip(self.gre_tunnel_ip_w_mask_network_device):
                 print("IP address is not correct")
                 self.gre_tunnel_ip_w_mask_network_device = ""
@@ -230,7 +238,7 @@ class WATCHER_CONFIG:
                 print("Tunnel IP address shouldn't be the same as physical device IP address")
                 self.gre_tunnel_ip_w_mask_network_device = ""
         while not self.gre_tunnel_ip_w_mask_watcher:
-            self.gre_tunnel_ip_w_mask_watcher = input("GRE Tunnel IP on Watcher with mask [x.x.x.x/yy]: ")
+            self.gre_tunnel_ip_w_mask_watcher = input("[3]GRE Tunnel IP on Watcher with mask [x.x.x.x/yy]: ")
             if not self.do_check_ip(self.gre_tunnel_ip_w_mask_watcher):
                 print("IP address is not correct")
                 self.gre_tunnel_ip_w_mask_watcher = ""
@@ -244,14 +252,15 @@ class WATCHER_CONFIG:
                 print("Tunnel' IP addresses must be different on endpoints")
                 self.gre_tunnel_ip_w_mask_watcher = ""
         while not self.gre_tunnel_number:
-            self.gre_tunnel_number = input("GRE Tunnel number: ")
+            self.gre_tunnel_number = input("[4]GRE Tunnel number: ")
             if not self.gre_tunnel_number.isdigit():
                 print("Please provide any positive number")
                 self.gre_tunnel_number = ""
         # ISIS settings
-        self.isis_area_num = input("IS-IS area number: ")
+        self.isis_area_num = input("[5]IS-IS area number: ")
         # Host interface name for NAT
-        self.host_interface_name = input("Host interface name [for GRE NAT]: ")
+        while not self.host_interface_device_ip:
+            self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
     
     def exec_cmds(self):
         return [
@@ -260,10 +269,12 @@ class WATCHER_CONFIG:
             f'ip address add {self.p2p_veth_host_ip_w_mask} dev {self.host_veth}',
             f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip}',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
+            f'sudo iptables -t nat -A POSTROUTING -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}',
+            f'sudo iptables -t nat -A PREROUTING -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} --to-destination {self.p2p_veth_watcher_ip} -j DNAT',
+            f'sudo iptables -t filter -A FORWARD -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT',
+            f'sudo iptables -t filter -A FORWARD -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT', # do not set output interface
             f'ip netns exec {self.netns_name} ip link set up dev gre1',
-            f'sudo iptables -t nat -A POSTROUTING -p gre -s {self.p2p_veth_watcher_ip_w_slash_32_mask} -d {self.gre_tunnel_network_device_ip} -o {self.host_interface_name} -j MASQUERADE',
-            f'sudo iptables -t filter -A FORWARD -p gre -s {self.p2p_veth_watcher_ip_w_slash_32_mask} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -o {self.host_interface_name} -j ACCEPT',
-            f'sudo iptables -t filter -A FORWARD -p gre -s {self.gre_tunnel_network_device_ip} -o {self.host_veth} -i {self.host_interface_name} -j ACCEPT'
+            f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
         ]
 
     @classmethod
