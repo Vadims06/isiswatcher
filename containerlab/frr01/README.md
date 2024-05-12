@@ -52,6 +52,8 @@ Available under `watcher` folder. To see them:
 sudo tail -f watcher/watcher.log
 ```
 
+Note:
+log file should have `systemd-network:systemd-journal` ownership
 
 > **Note**  
 > This lab is based on simple FRR for building topology based on frr routers, more information about it is available here: https://www.brianlinkletter.com/2021/05/use-containerlab-to-emulate-open-source-routers/
