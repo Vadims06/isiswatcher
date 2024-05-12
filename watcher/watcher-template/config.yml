@@ -6,12 +6,8 @@ topology:
     isis-watcher:
       kind: linux
       image: vadims06/isis-watcher:latest
+      network-mode: container:router
       startup-delay: 10
-      stages:
-        create:
-          wait-for:
-            - node: router
-              stage: create
       env:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
         ISISD_DUMP_FILE_DIR: "/var/log/frr/isisd.log"
@@ -20,18 +16,20 @@ topology:
         FRR_PORT: "2608"
       binds:
         - router/isisd.log:/var/log/frr/isisd.log # FRR -> Watcher
-        - isis-watcher/watcher.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+        # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+      stages:
+        create:
+          wait-for:
+            - node: h2
+              stage: create
     router:
       kind: linux
-      image: quay.io/frrouting/frr:9.1.0 # 9.0.0, 9.0.1, 9.0.2, 9.1.0 IS-IS over GRE works. Doesn't work 8.5.4
+      image: vadims06/frr:v8.5.4_isis_over_gre # quay.io/frrouting/frr:9.1.0, 9.0.0, 9.0.1, 9.0.2, 9.1.0 IS-IS works over GRE, but doesn't dump LSP https://github.com/FRRouting/frr/issues/15654 for tracking. IS-IS doesn't work over GRE 8.5.4. 
       binds:
         - router/isisd.log:/var/log/frr/isisd.log
         - router/daemons:/etc/frr/daemons
         - router/frr.conf:/etc/frr/frr.conf
         - router/vtysh.conf:/etc/frr/vtysh.conf
-      # comment it if you use frr from isis-watcher compose file
-      ports:
-       - 65001:2608
     h1:
       kind: host
       startup-delay: 1
@@ -46,9 +44,34 @@ topology:
         - ip netns exec clab-watcher2-tun1025-router ip link set up dev gre1
         # NAT and Allow rules for GRE
         - sudo iptables -t nat -A POSTROUTING -p gre -s 169.255.1.2 -d 192.168.1.35 -o eth0 -j MASQUERADE
-        - sudo iptables -t filter -A FORWARD -p gre -s 169.255.1.2/32 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
-        - sudo iptables -t filter -A FORWARD -p gre -s 192.168.1.35 -o vhost1025 -i eth0 -j ACCEPT
-
+        - sudo iptables -t filter -A FORWARD -p gre -s 169.255.1.2 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
+        - sudo iptables -t filter -A FORWARD -p gre -s 192.168.1.35 -i eth0 -j ACCEPT
+      stages:
+        create:
+          wait-for:
+            - node: router
+              stage: create
+    receive_only_filter:
+      kind: linux
+      image: vadims06/isis-filter-xdp:latest
+      startup-delay: 2
+      network-mode: host
+      env:
+        VTAP_HOST_INTERFACE: vhost1025
+      stages:
+        create:
+          wait-for:
+            - node: h1
+              stage: create
+    h2:
+      kind: host
+      exec:
+        - ip netns exec watcher3-gre1025-router ip link set up dev gre1
+      stages:
+        create:
+          wait-for:
+            - node: receive_only_filter
+              stage: create
 
   links:
     - endpoints: ["router:veth1", "host:vhost1025"] # type vtap

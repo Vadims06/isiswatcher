@@ -24,6 +24,8 @@ class WATCHER_CONFIG:
     ROUTER_NODE_NAME = "router"
     ROUTER_ISIS_SYSTEMID = "49.{area_num}.{watcher_num}.{gre_num}.1111.00"
     WATCHER_NODE_NAME = "isis-watcher"
+    ISIS_FILTER_NODE_NAME = "receive_only_filter"
+    ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
     def __init__(self, watcher_num):
         self.watcher_num = watcher_num
         # default
@@ -196,6 +198,12 @@ class WATCHER_CONFIG:
         # Watcher
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_folder_name}.log:/home/watcher/watcher/logs/watcher.log")
+        # IS-IS XDP filter, listen only
+        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
+        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
+        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
+        # Enable GRE after XDP filter
+        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
         with open(os.path.join(self.watcher_folder_path, "config.yml"), "w") as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(watcher_config_yml, s)
@@ -270,10 +278,13 @@ class WATCHER_CONFIG:
             f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip}',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
             f'sudo iptables -t nat -A POSTROUTING -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}',
-            f'sudo iptables -t nat -A PREROUTING -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} --to-destination {self.p2p_veth_watcher_ip} -j DNAT',
+            f'sudo iptables -t nat -A PREROUTING -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}',
             f'sudo iptables -t filter -A FORWARD -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT',
             f'sudo iptables -t filter -A FORWARD -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT', # do not set output interface
-            f'ip netns exec {self.netns_name} ip link set up dev gre1',
+            f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev veth1', # for xdp
+            # enable GRE after applying XDP filter
+            #f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
+            f'sudo ip link set mtu 1600 dev {self.host_veth}',
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
         ]
 
@@ -296,6 +307,7 @@ class WATCHER_CONFIG:
         self.do_add_watcher_prechecks()
         # create folder
         self.create_folder_with_settings()
+        print(f"Config has been successfully generated!")
 
     def stop_watcher(self):
         raise NotImplementedError("Not implemented yet. Please run manually `sudo clab destroy --topo <path to config.yml>`")
