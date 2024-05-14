@@ -26,6 +26,7 @@ class WATCHER_CONFIG:
     WATCHER_NODE_NAME = "isis-watcher"
     ISIS_FILTER_NODE_NAME = "receive_only_filter"
     ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
+    PROTOCOL = "isis"
     def __init__(self, watcher_num):
         self.watcher_num = watcher_num
         # default
@@ -86,6 +87,10 @@ class WATCHER_CONFIG:
     @property
     def watcher_folder_name(self):
         return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}"
+
+    @property
+    def watcher_log_file_name(self):
+        return f"{self.watcher_folder_name}.{self.PROTOCOL}.log"
 
     @property
     def watcher_folder_path(self):
@@ -158,9 +163,9 @@ class WATCHER_CONFIG:
         #os.mkdir(isis_watcher_folder_path)
         shutil.copyfile(
             src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
-            dst=os.path.join(watcher_logs_folder_path, f"{self.watcher_folder_name}.log"),
+            dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
         )
-        os.chmod(os.path.join(watcher_logs_folder_path, f"{self.watcher_folder_name}.log"), 0o755)
+        os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # router folder inside watcher
         os.mkdir(self.router_folder_path)
         for file_name in ["daemons", "isisd.log"]:
@@ -197,7 +202,7 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
         # Watcher
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['network-mode'] = f"container:{self.ROUTER_NODE_NAME}"
-        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_folder_name}.log:/home/watcher/watcher/logs/watcher.log")
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['binds'].append(f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log")
         # IS-IS XDP filter, listen only
         watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
         watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
