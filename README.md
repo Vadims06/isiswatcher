@@ -204,6 +204,21 @@ This is a quick set of checks in case of absence of events on IS-IS Monitoring p
 docker exec -it frr cat /var/log/frr/isisd.log
 ```   
 you should see logs similar to [this](https://github.com/Vadims06/ospfwatcher/blob/d8366508abc51627c7f9a2ce6e47b7f23e420f1e/watcher/tests/test25.txt)   
+If the log file is empty, check adjancency on Watcher:   
+```
+sudo docker exec -it watcher<num>-gre<num>-router vtysh
+show isis neighbor
+```
+if there is no IS-IS neighbor, ping remote end of GRE tunnel from the Watcher. At the same time, make tcpdump on watcher's interface and check counters of iptables   
+```
+sudo iptables -nvL -t filter --line-numbers
+sudo iptables -nvL -t nat --line-numbers
+```
+Clear connections of GRE tunnel
+```
+sudo conntrack -D -p 47
+```
+Check ICMP ping packets on Watcher's host and on network device.
 2. Check if Watcher parses changes:   
 ```
 docker exec -it watcher cat /home/watcher/watcher/logs/watcher.log
