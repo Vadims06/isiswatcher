@@ -35,16 +35,16 @@ topology:
       startup-delay: 1
       exec:
         # assign addresses on p2p link b/w namespace and host
-        - ip netns exec clab-watcher2-tun1025-router ip address add 169.255.1.2/24 dev veth1
-        - ip netns exec clab-watcher2-tun1025-router ip route add 192.168.1.35 via 169.255.1.1
-        - ip address add 169.255.1.1/24 dev vhost1025
+        - ip netns exec clab-watcher2-tun1025-router ip address add 169.254.1.2/24 dev veth1
+        - ip netns exec clab-watcher2-tun1025-router ip route add 192.168.1.35 via 169.254.1.1
+        - ip address add 169.254.1.1/24 dev vhost1025
         # setup GRE
-        - ip netns exec clab-watcher2-tun1025-router ip tunnel add gre1 mode gre local 169.255.1.2 remote 192.168.1.35
+        - ip netns exec clab-watcher2-tun1025-router ip tunnel add gre1 mode gre local 169.254.1.2 remote 192.168.1.35
         - ip netns exec clab-watcher2-tun1025-router ip address add 10.10.25.33/24 dev gre1
         - ip netns exec clab-watcher2-tun1025-router ip link set up dev gre1
         # NAT and Allow rules for GRE
-        - sudo iptables -t nat -A POSTROUTING -p gre -s 169.255.1.2 -d 192.168.1.35 -o eth0 -j MASQUERADE
-        - sudo iptables -t filter -A FORWARD -p gre -s 169.255.1.2 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
+        - sudo iptables -t nat -A POSTROUTING -p gre -s 169.254.1.2 -d 192.168.1.35 -o eth0 -j MASQUERADE
+        - sudo iptables -t filter -A FORWARD -p gre -s 169.254.1.2 -d 192.168.1.35 -i vhost1025 -o eth0 -j ACCEPT
         - sudo iptables -t filter -A FORWARD -p gre -s 192.168.1.35 -i eth0 -j ACCEPT
       stages:
         create:

@@ -17,7 +17,7 @@ class ACTIONS(enum.Enum):
 
 
 class WATCHER_CONFIG:
-    P2P_VETH_SUPERNET_W_MASK = "169.255.0.0/16"
+    P2P_VETH_SUPERNET_W_MASK = "169.254.0.0/16"
     WATCHER_ROOT_FOLDER = "watcher"
     WATCHER_TEMPLATE_FOLDER_NAME = "watcher-template"
     WATCHER_TEMPLATE_CONFIG_FILE = "config.yml"
@@ -285,6 +285,7 @@ class WATCHER_CONFIG:
             # enable GRE after applying XDP filter
             #f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
             f'sudo ip link set mtu 1600 dev {self.host_veth}',
+            f'sudo conntrack -D --dst {self.gre_tunnel_network_device_ip} -p 47',
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
         ]
 
