@@ -72,8 +72,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 50
-    depends_on:
-      - frr
     networks:
       - internal
 
