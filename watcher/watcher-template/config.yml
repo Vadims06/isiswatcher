@@ -2,6 +2,9 @@ name: watcher2-tun1025
 prefix: __lab-name
 
 topology:
+  defaults:
+    env-files:
+    - ../../.env
   nodes:
     isis-watcher:
       kind: linux
@@ -11,9 +14,6 @@ topology:
       env:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
         ISISD_DUMP_FILE_DIR: "/var/log/frr/isisd.log"
-        TEST_MODE: "False"
-        FRR_HOST: 127.0.0.1
-        FRR_PORT: "2608"
       binds:
         - router/isisd.log:/var/log/frr/isisd.log # FRR -> Watcher
         # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
