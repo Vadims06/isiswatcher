@@ -17,6 +17,8 @@ topology:
       binds:
         - router/isisd.log:/var/log/frr/isisd.log # FRR -> Watcher
         # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
+        # For crash dump logs if any
+        - ../logs/:/home/watcher/watcher/logs/
       stages:
         create:
           wait-for:
