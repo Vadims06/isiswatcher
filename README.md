@@ -189,6 +189,40 @@ docker-compose up -d
  If Topolograph is installed, logs are available under `Real-Time Monitoring` tab
  If ELK is installed, logs are available here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
 
+##### Logs sample 1  
+```
+2023-01-01T00:00:00Z,demo-watcher,1,host,0200.1001.0002,down,0200.1001.0003,01Jan2023_00h00m00s_7_hosts
+```
+
+* `2023-01-01T00:00:00Z` - event timestamp
+* `demo-watcher` - name of watcher
+* `1` - IS-IS level
+* `host` - event name: `host`, `network`, `metric`
+* `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
+* `down` - event status: `down`, `up`, `changed`
+* `0200.1001.0003` - event detected by this node.
+* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
+*Summary: `0200.1001.0003` detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1*
+
+##### Logs sample 2  
+```
+2023-01-01T00:00:00Z,isis-watcher,2,metric,4ffe::192:168:23:2/127,changed,old_cost:10,new_cost:12,0200.1001.0002,stub,0200.1001.0002,01Jan2023_00h00m00s_7_hosts
+```
+
+* `2023-01-01T00:00:00Z` - event timestamp
+* `isis-watcher` - name of watcher
+* `2` - IS-IS level
+* `metric` - event name: `host`, `network`, `metric`
+* `4ffe::192:168:23:2/127` - event object. Watcher detected an event related to 4ffe::192:168:23:2/127` subnet
+* `changed` - event status: `down`, `up`, `changed`
+* `10` - old cost
+* `12` - new cost
+* `0200.1001.0002` - event detected by this node.
+* `stub` - subnet type
+* `0200.1001.0002` - since it's a stub network it has router id of terminated node.
+* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
+*Summary: `0200.1001.0002` detected that metric of `4ffe::192:168:23:2/127` stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in IS-IS level 2*
+
 ### Listen-only mode. XDP in action.
 If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  
 ![](./docs/xdp_behavior_with_two_subnets_on_frr.png)  
