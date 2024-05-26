@@ -9,7 +9,7 @@ topology:
       kind: linux
       image: vadims06/isis-watcher:1.0
       mgmt-ipv4: 172.20.20.10
-      startup-delay: 30
+      startup-delay: 10
       stages:
         create:
           wait-for:
