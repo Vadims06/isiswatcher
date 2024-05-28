@@ -160,6 +160,8 @@ class WATCHER_CONFIG:
         os.mkdir(self.watcher_folder_path)
         # isis-watcher folder
         watcher_logs_folder_path = os.path.join(self.watcher_root_folder_path, "logs")
+        if not os.path.exists(watcher_logs_folder_path):
+            os.mkdir(watcher_logs_folder_path)
         #os.mkdir(isis_watcher_folder_path)
         shutil.copyfile(
             src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
