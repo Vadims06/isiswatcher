@@ -3,6 +3,9 @@ prefix: __lab-name
 
 topology:
   defaults:
+    labels:
+      gre_num: 1025
+      gre_tunnel_network_device_ip: 192.168.1.35
     env-files:
     - ../../.env
   nodes:
