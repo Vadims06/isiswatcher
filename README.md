@@ -96,7 +96,11 @@ Set variables in `.env` file:
 > * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
 > * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will be uploaded, not from FRR 
 3. Setup ELK (skip it, it's only needed for setup № 3)  
-* if you already have ELK instance running, so remember `ELASTIC_IP` for filling env file later and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
+* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`.
+To create Index Templates, run:
+```
+sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
+```
 
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in `docker-elk/elasticsearch/config/elasticsearch.yml`  
     ```
@@ -111,7 +115,7 @@ git clone https://github.com/Vadims06/isiswatcher.git
 cd isiswatcher
 ```
 Generate configuration files  
-`isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
+`vadims06/isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
 ```
 sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action add_watcher
 ```   
@@ -232,13 +236,17 @@ To check XDP logs, run
 sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 ## Troubleshooting
+`isis-watcher:v1.4` has `diagnostic` method in `client.py`, which can check packets (tcpdump) from FRR, network device as well as iptables settings. 
+```
+sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action diagnostic --watcher_num <num>
+```   
 This is a quick set of checks in case of absence of events on IS-IS Monitoring page. IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
 1. Check if FRR tracks IS-IS changes, run the following command:  
 ```
 docker exec -it frr cat /var/log/frr/isisd.log
 ```   
 you should see logs similar to [this](https://github.com/Vadims06/ospfwatcher/blob/d8366508abc51627c7f9a2ce6e47b7f23e420f1e/watcher/tests/test25.txt)   
-If the log file is empty, check adjancency on Watcher:   
+If the log file is empty, check adjacency on Watcher:   
 ```
 sudo docker exec -it watcher<num>-gre<num>-router vtysh
 show isis neighbor
@@ -279,7 +287,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
     use admins
     ```
-    Check the last two/N records in adjancency changes (`adj_change`) or cost changes (`cost_change`)
+    Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
     ```
     db.adj_change.find({}).sort({_id: -1}).limit(2)
     db.cost_change.find({}).sort({_id: -1}).limit(2)

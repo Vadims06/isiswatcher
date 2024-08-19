@@ -1,10 +1,12 @@
 import argparse
+import diagnostic
 import ipaddress
 import shutil
 from ruamel.yaml import YAML
 from jinja2 import Environment, FileSystemLoader
 from io import StringIO
 import os
+import re
 import enum
 
 ruamel_yaml_default_mode = YAML()
@@ -14,20 +16,21 @@ class ACTIONS(enum.Enum):
     ADD_WATCHER = "add_watcher"
     STOP_WATCHER = "stop_watcher"
     GET_STATUS = "get_status"
+    DIAGNOSTIC = "diagnostic"
 
 
 class WATCHER_CONFIG:
     P2P_VETH_SUPERNET_W_MASK = "169.254.0.0/16"
     WATCHER_ROOT_FOLDER = "watcher"
     WATCHER_TEMPLATE_FOLDER_NAME = "watcher-template"
-    WATCHER_TEMPLATE_CONFIG_FILE = "config.yml"
+    WATCHER_CONFIG_FILE = "config.yml"
     ROUTER_NODE_NAME = "router"
     ROUTER_ISIS_SYSTEMID = "49.{area_num}.{watcher_num}.{gre_num}.1111.00"
     WATCHER_NODE_NAME = "isis-watcher"
     ISIS_FILTER_NODE_NAME = "receive_only_filter"
     ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
-    PROTOCOL = "isis"
-    def __init__(self, watcher_num):
+
+    def __init__(self, watcher_num, protocol="isis"):
         self.watcher_num = watcher_num
         # default
         self.gre_tunnel_network_device_ip = ""
@@ -36,6 +39,7 @@ class WATCHER_CONFIG:
         self.gre_tunnel_number = 0
         self.isis_area_num = 1
         self.host_interface_device_ip = ""
+        self.protocol = protocol
 
     def gen_next_free_number(self):
         """ Each Watcher installation has own sequense number starting from 1 """
@@ -46,6 +50,22 @@ class WATCHER_CONFIG:
         """ Return a list of watcher folders """
         watcher_root_folder_path = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
         return [file for file in os.listdir(watcher_root_folder_path) if os.path.isdir(os.path.join(watcher_root_folder_path, file)) and file.startswith("watcher") and not file.endswith("template")]
+
+    def import_from(self, watcher_num):
+        """
+        Browse a folder directory and find a folder with watcher num. Parse GRE tunnel
+        """
+        # watcher1-gre1025-ospf
+        watcher_re = re.compile("(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-gre(?P<gre_num>\d+)(-(?P<proto>-[a-zA-Z]+))?")
+        for file in self.get_existed_watchers():
+            watcher_match = watcher_re.match(file)
+            if watcher_match and watcher_match.groupdict().get("watcher_num", "") == str(watcher_num):
+                self.gre_tunnel_number = watcher_match.groupdict().get("gre_num")
+                self.protocol = watcher_match.groupdict().get("proto") if watcher_match.groupdict().get("proto") else self.protocol
+                self.gre_tunnel_network_device_ip = self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).get('gre_tunnel_network_device_ip', '')
+                break
+        else:
+            raise ValueError(f"Watcher{watcher_num} was not found")
 
     @property
     def p2p_veth_network_obj(self):
@@ -86,11 +106,11 @@ class WATCHER_CONFIG:
 
     @property
     def watcher_folder_name(self):
-        return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}"
+        return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}-{self.protocol}"
 
     @property
     def watcher_log_file_name(self):
-        return f"{self.watcher_folder_name}.{self.PROTOCOL}.log"
+        return f"{self.watcher_folder_name}.{self.protocol}.log"
 
     @property
     def watcher_folder_path(self):
@@ -109,9 +129,20 @@ class WATCHER_CONFIG:
         return os.path.join(self.watcher_folder_path, self.ROUTER_NODE_NAME)
 
     @property
+    def watcher_config_file_path(self):
+        return os.path.join(self.watcher_folder_path, self.WATCHER_CONFIG_FILE)
+
+    @property
+    def watcher_config_file_yml(self) -> dict:
+        if os.path.exists(self.watcher_config_file_path):
+            with open(self.watcher_config_file_path) as f:
+                return ruamel_yaml_default_mode.load(f)
+        return {}
+
+    @property
     def watcher_config_template_yml(self):
         watcher_template_path = os.path.join(self.watcher_root_folder_path, self.WATCHER_TEMPLATE_FOLDER_NAME)
-        with open(os.path.join(watcher_template_path, self.WATCHER_TEMPLATE_CONFIG_FILE)) as f:
+        with open(os.path.join(watcher_template_path, self.WATCHER_CONFIG_FILE)) as f:
             return ruamel_yaml_default_mode.load(f)
 
     @property
@@ -200,6 +231,10 @@ class WATCHER_CONFIG:
         # containerlab config
         watcher_config_yml = self.watcher_config_template_yml
         watcher_config_yml["name"] = self.watcher_folder_name
+        # remember user input for further user, i.e diagnostic
+        watcher_config_yml['topology']['defaults']['labels']['gre_num'] = self.gre_tunnel_number
+        watcher_config_yml['topology']['defaults']['labels']['gre_tunnel_network_device_ip'] = self.gre_tunnel_network_device_ip
+        # Config
         watcher_config_yml['topology']['nodes']['h1']['exec'] = self.exec_cmds()
         watcher_config_yml['topology']['links'] = [{'endpoints': [f'{self.ROUTER_NODE_NAME}:veth1', f'host:{self.host_veth}']}]
         # Watcher
@@ -211,7 +246,7 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
         # Enable GRE after XDP filter
         watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
-        with open(os.path.join(self.watcher_folder_path, "config.yml"), "w") as f:
+        with open(self.watcher_config_file_path, "w") as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(watcher_config_yml, s)
             f.write(s.getvalue())
@@ -219,7 +254,7 @@ class WATCHER_CONFIG:
     def do_add_watcher_prechecks(self):
         if os.path.exists(self.watcher_folder_path):
             raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
-        # TODO, check if GRE with the same tunnel destination already exist
+        # TODO, check if GRE with the same tunnel destination already exist without root access
 
     @staticmethod
     def do_print_banner():
@@ -282,12 +317,13 @@ class WATCHER_CONFIG:
             f'ip netns exec {self.netns_name} ip address add {self.p2p_veth_watcher_ip_w_mask} dev veth1',
             f'ip netns exec {self.netns_name} ip route add {self.gre_tunnel_network_device_ip} via {str(self.p2p_veth_host_ip_obj)}',
             f'ip address add {self.p2p_veth_host_ip_w_mask} dev {self.host_veth}',
-            f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip}',
+            f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip} ttl 100',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
             f'sudo iptables -t nat -A POSTROUTING -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}',
             f'sudo iptables -t nat -A PREROUTING -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}',
             f'sudo iptables -t filter -A FORWARD -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT',
             f'sudo iptables -t filter -A FORWARD -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT', # do not set output interface
+            f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev gre1',
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev veth1', # for xdp
             # enable GRE after applying XDP filter
             #f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
@@ -324,14 +360,28 @@ class WATCHER_CONFIG:
         # TODO add IS-IS neighborship status
         raise NotImplementedError("Not implemented yet. Please run manually `sudo docker ps -f label=clab-node-name=router`")
 
-
+    def diagnostic(self):
+        print(f"Diagnostic connection is started")
+        self.import_from(watcher_num=args.watcher_num)
+        watcher_host_dump = diagnostic.WATCHER_HOST(
+            if_names=[self.host_veth],
+            watcher_internal_ip=self.p2p_veth_watcher_ip,
+            network_device_ip=self.gre_tunnel_network_device_ip
+        )
+        print(f"Please wait {watcher_host_dump.DUMP_FILTER_TIMEOUT} sec")
+        watcher_host_dump.run()
+        if watcher_host_dump.is_watcher_alive:
+            diagnostic.IPTABLES_FRR_NETNS_FORWARD_TO_NETWORK_DEVICE_BEFORE_NAT.check(self.gre_tunnel_network_device_ip)
+        if watcher_host_dump.is_network_device_alive:
+            diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_FORWARD_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
+            diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Provisioning Watcher instances for tracking IS-IS topology changes"
     )
     parser.add_argument(
-        "--action", required=True, help="Options: add_watcher, stop_watcher, get_status"
+        "--action", required=True, help="Options: add_watcher, stop_watcher, get_status, diagnostic"
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, help="Number of watcher"

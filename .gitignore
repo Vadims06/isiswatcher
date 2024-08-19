@@ -4,5 +4,6 @@ clab-frr01
 isiswatcher/containerlab/frr01/clab-frr01
 __pycache__/
 watcher/logs/
+containerlab
 *.log
 *.bak
