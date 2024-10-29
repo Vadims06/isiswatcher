@@ -1,5 +1,7 @@
 # IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start. The only thing is needed to configure manually is GRE tunnel setup on the Linux host.  
+> **Note**  
+> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you are interested in tracking IS-IS topology changes via BGP-LS.   
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
 * IS-IS link cost changes
@@ -74,6 +76,10 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 #### Containerlab
 Containerlab's topology is placed under **containerlab** folder. Local `README` includes instructions how to run it. IS-IS topology changes are printed by Watcher in a text file only.
 ![IS-IS watcher containerlab](./containerlab/frr01/container_lab.drawio.png)
+```
+./containerlab/frr01/prepare.sh
+sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
+```   
 
 
 ## How to connect IS-IS watcher to real network  
@@ -83,6 +89,8 @@ Table below shows different options of possible setups, starting from the bare m
 | 1 | Bare minimum. Containerlab                                                                 |            0            |        +       |              -              |                  -                  |                    -                   |
 | 2 | 1. Local Topolograph  <br>2. local compose file with ELK **disabled** (commented) |            2            |        +       |              +              |                  +                  |                    -                   |
 | 3 | 1. Local Topolograph  <br>2. local compose file with ELK **enabled**              |            3            |        +       |              +              |                  +                  |                    +                   |
+
+#### Setup №2. Text logs + timeline of network changes on Topolograph 
 1. Choose a Linux host with Docker installed
 2. Setup Topolograph  
 * launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) 
@@ -98,13 +106,18 @@ Set variables in `.env` file:
 3. Setup ELK (skip it, it's only needed for setup № 3)  
 * if you already have ELK instance running, so remember `ELASTIC_IP` for filling env file later and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for creation Index Templates, because the demo script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`. Fill free to edit such a script for your needs.
 
-* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in `docker-elk/elasticsearch/config/elasticsearch.yml`  
-    ```
-    xpack.license.self_generated.type: basic
-    xpack.security.enabled: false
-    ```  
-    > **Note about having Elastic config commented**
+To create Index Templates, run:
+```
+sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
+```   
+* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
+```
+xpack.license.self_generated.type: basic
+xpack.security.enabled: false
+```  
+> **Note about having Elastic config commented**
     > When the Elastic output plugin fails to connect to the ELK host, it blocks all other outputs and ignores "EXPORT_TO_ELASTICSEARCH_BOOL" value from env file. Regardless of EXPORT_TO_ELASTICSEARCH_BOOL being False, it tries to connect to Elastic host. The solution - uncomment this portion of config in case of having running ELK.
+
 4. Setup IS-IS Watcher
 ```bash
 git clone https://github.com/Vadims06/isiswatcher.git
@@ -113,8 +126,23 @@ cd isiswatcher
 Generate configuration files  
 `isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
 ```
-sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:v1.1 python3 ./client.py --action add_watcher
+sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action add_watcher
 ```   
+The output:
+```
++---------------------------+                                        
+|  Watcher Host             |                       +-------------------+
+|  +------------+           |                       | Network device    |
+|  | netns FRR  |           |                       |                   |
+|  |            Tunnel [4]  |                       | Tunnel [4]        |
+|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
+|  |  eth1------+-vhost1    |       +-----+         | IS-IS area num [5]|
+|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
+|  |            |           |       +-----+         |                   |
+|  +------------+           |                       |                   |
+|                           |                       +-------------------+
++---------------------------+                                        
+```
 The script will create:
 1. a folder under `watcher` folder with FRR configuration under `router` folder
 2. a containerlab configuration file with network settings
@@ -198,45 +226,45 @@ To check XDP logs, run
 sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 ## Troubleshooting
-This is a quick set of checks in case of absence of events on IS-IS Monitoring page. IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
-1. Check if FRR tracks IS-IS changes, run the following command:  
-```
-docker exec -it frr cat /var/log/frr/isisd.log
-```   
-you should see logs similar to [this](https://github.com/Vadims06/ospfwatcher/blob/d8366508abc51627c7f9a2ce6e47b7f23e420f1e/watcher/tests/test25.txt)   
-If the log file is empty, check adjancency on Watcher:   
-```
-sudo docker exec -it watcher<num>-gre<num>-router vtysh
-show isis neighbor
-```
-if there is no IS-IS neighbor, ping remote end of GRE tunnel from the Watcher. At the same time, make tcpdump on watcher's interface and check counters of iptables   
-```
-sudo iptables -nvL -t filter --line-numbers
-sudo iptables -nvL -t nat --line-numbers
-```
-Clear connections of GRE tunnel
-```
-sudo conntrack -D -p 47
-```
-Check ICMP ping packets on Watcher's host and on network device.
-2. Check if Watcher parses changes:   
-```
-docker exec -it watcher cat /home/watcher/watcher/logs/watcher.log
-```
-You should see tracked changes of your network, i.e. here we see that `10.0.0.0/29` network went up at `2023-10-27T07:50:24Z` on `10.10.1.4` router.   
-```
-2023-10-27T07:50:24Z,demo-watcher,network,10.0.0.0/29,up,10.10.1.4,28Oct2023_01h10m02s_7_hosts_ospfwatcher
-```
-3. Check that messages are sent:  
-    1. Uncomment `DEBUG_BOOL="True"` in `.env` and check logs `docker logs logstash` and do:
-        - wait for the next event in your network
-        - change a cost of you stub network, return it back and see this event in this logs
-        - simulate network changes   
-            ```
-            docker exec -it watcher /bin/bash
-            echo "2023-10-27T07:50:24Z,demo-watcher,network,10.0.0.0/29,up,10.10.1.4,28Oct2023_01h10m02s_7_hosts_ospfwatcher" >> /home/watcher/watcher/logs/watcher.log
-            ```    
-    2. Connect to mongoDB and check logs:
+##### Symptoms
+Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
+
+##### Steps:
+1. Run diagnostic script. It will check **IS-IS Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
+
+    ```
+    sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:latest python3 ./client.py --action diagnostic --watcher_num <num>
+    ``` 
+2. Login on FRR, check adjancency:   
+    ```
+    sudo docker exec -it watcher<num>-gre<num>-router vtysh
+    show isis neighbor
+    ```
+    if there is no IS-IS neighbor, ping remote end of GRE tunnel from the Watcher. At the same time, make tcpdump on watcher's interface and check counters of iptables   
+    ```
+    sudo iptables -nvL -t filter --line-numbers
+    sudo iptables -nvL -t nat --line-numbers
+    ```
+    Clear connections of GRE tunnel
+    ```
+    sudo conntrack -D -p 47
+    ```
+    Check ICMP ping packets on Watcher's host and on network device.
+##### Symptoms
+Dashboard page is blank. Events are not present on OSPF/IS-IS Monitoring page.
+##### Steps:
+IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
+1. Check if FRR tracks IS-IS changes in `./watcher/logs/watcher...log` file (previous case)   
+You should see tracked changes of your network, i.e. 
+    ```
+    2024-10-08T22:54:54Z,watcher1,1,network,4ffe::192:168:145:4/127,changed,old_cost:44,new_cost:4,0200.1001.0004,,49.0002,12345,internal,0
+    ```
+2. Check that logstash container from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` command.  
+
+    1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
+    2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-isis.isis.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
+  
+3. Check if logs are in Topolograph's DB. Connect to mongoDB and run:
     ```
     docker exec -it mongo /bin/bash
     ```  
@@ -255,7 +283,7 @@ You should see tracked changes of your network, i.e. here we see that `10.0.0.0/
 
  ### Versions
  #### FRR
-FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over GRE because of internal packet filtering. The filter has been updated to permit IS-IS over GRE through Pull request [#12979](https://github.com/FRRouting/frr/pull/12979) and is only supported in FRR 9 versions. However, this version only logs a partial IS-IS LSP ([#Issue 15654](https://github.com/FRRouting/frr/issues/15654)) and is incompatible with the Watcher. Therefore, a custom FRR build based on FRR 8.x version with an altered internal filter for GRE packets is required. `vadims06/frr:v8.5.4_isis_over_gre` is prepaired and tested to work IS-IS over GRE tunnel. If you need another 8.x version or want to build your own FRR image - follow the instructions mentioned below.
+FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over GRE because of internal packet filtering. The filter has been updated to permit IS-IS over GRE through Pull request [#12979](https://github.com/FRRouting/frr/pull/12979) and is only supported in FRR 9 versions. However, this version has wrong LSDB output (mix LSPID with hostnames) and is incompatible with the Watcher. Therefore, a custom FRR build based on FRR 8.x version with an altered internal filter for GRE packets is required. `vadims06/frr:v8.5.4_isis_over_gre` is prepaired and tested to work IS-IS over GRE tunnel. If you need another 8.x version or want to build your own FRR image - follow the instructions mentioned below.
  #####  How to prepare FRR instance (optional)
  1. clone FRR and choose any FRR 8.x branch
  ```
@@ -275,7 +303,17 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
  4. Inspect your new FRR image name using `docker image ls` and replace `router/image` by your own image name in `isiswatcher/watcher/watcher-template/config.yml`
 
  ### Minimum Logstash version
- 7.17.0, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+ 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+
+### Topolograph suite
+* OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
+* IS-IS Watcher [link](https://github.com/Vadims06/isiswatcher)
+* Topolograph [link](https://github.com/Vadims06/topolograph)
+* Topolograph in docker [link](https://github.com/Vadims06/topolograph-docker)
+
+### Community & feedback
+* https://t.me/topolograph
+* admin at topolograph.com
 
  ### License
  The functionality was tested using Basic ELK license.  
