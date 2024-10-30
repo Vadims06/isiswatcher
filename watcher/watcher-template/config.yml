@@ -3,9 +3,6 @@ prefix: __lab-name
 
 topology:
   defaults:
-    labels:
-      gre_num: 1025
-      gre_tunnel_network_device_ip: 192.168.1.35
     env-files:
     - ../../.env
   nodes:
@@ -13,14 +10,11 @@ topology:
       kind: linux
       image: vadims06/isis-watcher:latest
       network-mode: container:router
-      startup-delay: 10
+      startup-delay: 60
       env:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
         ISISD_DUMP_FILE_DIR: "/var/log/frr/isisd.log"
       binds:
-        - router/isisd.log:/var/log/frr/isisd.log # FRR -> Watcher
-        # - ../logs/watcher1-gre1011.log:/home/watcher/watcher/logs/watcher.log # Watcher -> Export
-        # For crash dump logs if any
         - ../logs/:/home/watcher/watcher/logs/
       stages:
         create:
@@ -31,7 +25,6 @@ topology:
       kind: linux
       image: vadims06/frr:v8.5.4_isis_over_gre # quay.io/frrouting/frr:9.1.0, 9.0.0, 9.0.1, 9.0.2, 9.1.0 IS-IS works over GRE, but doesn't dump LSP https://github.com/FRRouting/frr/issues/15654 for tracking. IS-IS doesn't work over GRE 8.5.4. 
       binds:
-        - router/isisd.log:/var/log/frr/isisd.log
         - router/daemons:/etc/frr/daemons
         - router/frr.conf:/etc/frr/frr.conf
         - router/vtysh.conf:/etc/frr/vtysh.conf
