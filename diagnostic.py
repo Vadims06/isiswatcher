@@ -2,13 +2,58 @@ from abc import abstractmethod
 from scapy.all import AsyncSniffer, IP, SndRcvList, PacketList, sniff
 from scapy.config import conf
 import netns
-import time
+import re
 import logging
 import sys
 
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 log = logging.getLogger(__name__)
 
+import subprocess
+import tempfile
+
+class LinuxCommandNotFound(Exception):
+    pass
+
+class LINUX_HOST:
+
+    @staticmethod
+    def subprocess_output(command, if_raise=None):
+
+        # Use tempfile, allowing a larger amount of memory. The subprocess.Popen
+        # docs warn that the data read is buffered in memory. They suggest not to
+        # use subprocess.PIPE if the data size is large or unlimited.
+        try:
+            with tempfile.TemporaryFile() as stdout_f, tempfile.TemporaryFile() as stderr_f:
+                proc = subprocess.Popen(command, stdout=stdout_f, stderr=stderr_f)
+                proc.wait()
+                stderr_f.seek(0)
+                err = stderr_f.read()
+                stdout_f.seek(0)
+                output = stdout_f.read()
+        except:
+            _msg = f"The {command} command is not available. Make sure it's installed."
+            log.critical(_msg)
+            if if_raise:
+                raise LinuxCommandNotFound(_msg)
+        return output, err, proc.returncode
+    
+    def get_conntrack(self, if_raise=None):
+        """ Return a list of conntracks"""
+        conntracks_ll = []
+        out, err, returncode = self.subprocess_output(['conntrack', '-L'], if_raise=if_raise)
+        if out is not None and isinstance(out, bytes):
+            out = out.decode('utf-8')
+        if returncode == 0:
+            conntrack_re = re.compile(r'(?P<proto_name>\w+)\s+(?P<proto_num>\d+).*src=(?P<inner_src_ip>[\d.]+)\s+dst=(?P<inner_dst_ip>[\d.]+)\s.*src=(?P<outer_src_ip>[\d.]+)\s+dst=(?P<outer_dst_ip>[\d.]+)')
+            conntrack_lines = out.splitlines()
+            for line in conntrack_lines:
+                conntrack_match = conntrack_re.match(line)
+                if conntrack_match:
+                    conntracks_ll.append(conntrack_match.groupdict())
+        else:
+            log.critical(f"Error executing conntrack: {err}")
+        return conntracks_ll
 
 class BASE:
 
@@ -147,6 +192,25 @@ class WATCHER_HOST(BASE):
         if self.is_watcher_alive and self.is_network_device_alive:
             log.info("Watcher and Network device have reachability")
 
+    def does_conntrack_exist_for_gre(self):
+        """ Check if connection for the network device exist. If new watcher has been created - no conntrack should exist for the same device
+        gre      47 29 src=169.254.4.2 dst=192.168.1.35 srckey=0x0 dstkey=0x0 src=192.168.1.35 dst=192.168.1.33 srckey=0x0 dstkey=0x0 mark=0 use=1
+
+        """
+        conntracks_ll = LINUX_HOST().get_conntrack()
+        for conntrack in conntracks_ll:
+            if conntrack['proto_name'] != 'gre':
+                continue
+            if conntrack['inner_dst_ip'] == self.network_device_ip:
+                log.critical(
+                    f"""conntrack found {conntrack} for {self.network_device_ip}.
+                    Remove it running:
+                    sudo conntrack -D --src={conntrack['inner_src_ip']} or
+                    sudo conntrack -D --dst={self.network_device_ip}"""
+                )
+                return True
+        log.info(f"No conntrack connections found. Good to proceed.")
+
 class IPTABLE_ENTRY_IP:
     def __init__(self, ip:str) -> None:
         import ipaddress
@@ -159,11 +223,23 @@ class IPTABLE_ENTRY_IP:
     def __eq__(self, other):
         return str(self.ip) == other
 
-class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_EXIST:
+class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE:
+
+    """
+    Chain PREROUTING (policy ACCEPT 60 packets, 18006 bytes)
+    num   pkts bytes target     prot opt in     out     source               destination
+    2     1319  116K DNAT       47   --  *      *       192.168.1.35         192.168.1.33         to:169.254.2.2
+
+    {'counters': (1311, 115368),
+                 'dst': '192.168.1.33/32',
+                 'protocol': 'gre',
+                 'src': '192.168.1.35/32',
+                 'target': {'DNAT': {'to-destination': '169.254.2.2'}}},
+    """
 
     ASSERT_MSG = """
         Duplicated settings for the same device IP are found.
-        It's possible to create GRE tunnel for a single Watchet - Network device pair only.
+        It's possible to create GRE tunnel for a single Watcher - Network device pair only.
     """
 
     @staticmethod
@@ -171,19 +247,27 @@ class IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_EXIST:
         try:
             import iptc
         except Exception as e:
-            print(f"Iptables checks are ignored")
+            log.info(f"Iptables checks are ignored, {e}")
             return True
-        existed_nat_records_ll = []
+        existed_nat_records_hash = set()
         for nat_table_row in iptc.easy.dump_chain('nat', 'PREROUTING', ipv6=False):
             if nat_table_row.get('src', '') != IPTABLE_ENTRY_IP(network_device_ip):
                 continue
-            existed_nat_records_ll.append(nat_table_row)
-        if len(existed_nat_records_ll) == 0:
-            log.info("NAT doesn't have settings for such remote network device. Good to add it.")
+            dnat_ip = nat_table_row.get('target', {}).get('DNAT', {}).get('to-destination', '')
+            existed_nat_records_hash.add((network_device_ip, dnat_ip))
+        if not existed_nat_records_hash:
+            log.critical(f"""There is no NAT settings for watcher, please check iptables, run:
+            1. sudo iptables -nvL -t nat --line-numbers""")
+            return False
+        elif len(existed_nat_records_hash) == 1:
+            log.info("NAT doesn't have settings for any other remote network device. Good to proceed.")
             return True
-        log.critical(IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_EXIST.ASSERT_MSG +
-            f"""Watcher's host has already {len(existed_nat_records_ll)} NAT records for {network_device_ip}.
-            To remove them, run `sudo iptables -nvL -t nat --line-numbers` and sudo iptables -t nat -D PREROUTING <num>"""
+        log.critical(IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.ASSERT_MSG +
+            f"""Watcher's host has already {len(existed_nat_records_hash)} NAT records for {network_device_ip}.
+            To remove them, run:
+            1. sudo iptables -nvL -t nat --line-numbers
+            2. sudo iptables -t nat -D PREROUTING <num>
+            3. sudo conntrack -D --src={network_device_ip}"""
         )
         return False
 
