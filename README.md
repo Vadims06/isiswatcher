@@ -194,14 +194,44 @@ It's needed to have a minimum one GRE tunnel to an area, which is needed to be m
 docker-compose up -d
 ```
 
- ## Kibana settings
- 1. **Index Templates**  have already been created. It's needed to check that logs are received by ELK via `Stack Management/ Kibana/ Stack Management/ Index Management`. `watcher-costs-changes` and `watcher-updown-events` should be in a list.  
-  ![](./docs/kibana_index_template.png)  
- 2. Create **Index Pattern** for old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern` -> `Create index pattern` or **Data View** in new ELK `Stack Management/ Kibana/ Stack Management/ Data Views` and specify `watcher-updown-events` as Index pattern name -> Next -> choose `watcher_time` as timestamp.  
- ![](./docs/kibana_data_view.png)  
- Repeat the step for creation `watcher-costs-changes`  
- Because the connection between Watcher (with Logstash) can be lost, but watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added 
- to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+## Kibana settings
+1. **Index Templates** 
+Have been already created by `logstash-index-creator` container in compose yaml file.
+Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
+* `isis-watcher-costs-changes`
+* `isis-watcher-updown-events`     
+![](docs/kibana_index_template.png)   
+2. **Index Pattern**
+Create indices with the same name as index templates
+Go to:
+old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern -> Create index pattern`
+new ELK 8.x `Management -> Stack Management -> Index Management -> [ Indices ]`
+then `Create index`
+* isis-watcher-costs-changes
+* isis-watcher-updown-events
+![](docs/kibana_indices.png)   
+3. **Data View**
+Create data view for two event types.
+Go to `Management -> Stack Management -> Data Views`
+then `Create data view`
+```
+Name: isis-watcher-costs-changes
+Index pattern: isis-watcher-costs-changes
+Timestamp field: use watcher time
+```
+![](docs/kibana_data_view.png)   
+Repeat the same for `isis-watcher-updown-events`
+As a result, there are two data views should be listed
+![](docs/kibana_data_view_list.png) 
+> Note
+What time to use @timestamp or watcher
+
+It's better to use `watcher` time, because connection between Watcher and  Logstash can be lost, but the watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+
+4. **Additional checks**
+Make sure that:
+* `.env` has `EXPORT_TO_ELASTICSEARCH_BOOL=True`
+* `./logstash/pipeline/logstash.conf` has ELK uncommented
 
  ## Zabbix settings
  Zabbix settings are available here ```/docs/zabbix-ui```. There are 4 hosts and items (host and item inside each host has the same names) are required:
@@ -223,7 +253,7 @@ docker-compose up -d
 
 ##### Logs sample 1  
 ```
-2023-01-01T00:00:00Z,demo-watcher,1,host,0200.1001.0002,down,0200.1001.0003,01Jan2023_00h00m00s_7_hosts
+2023-01-01T00:00:00Z,demo-watcher,1,host,0200.1001.0002,down,0200.1001.0003,01Jan2023_00h00m00s_7_hosts,49.0002,12345
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -234,11 +264,13 @@ docker-compose up -d
 * `down` - event status: `down`, `up`, `changed`
 * `0200.1001.0003` - event detected by this node.
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-*Summary: `0200.1001.0003` detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1*
+* `49.0002` - area number
+* `12345` - AS number
+*Summary: `0200.1001.0003` detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1 in area 49.0002 in AS 12345*
 
 ##### Logs sample 2  
 ```
-2023-01-01T00:00:00Z,isis-watcher,2,metric,4ffe::192:168:23:2/127,changed,old_cost:10,new_cost:12,0200.1001.0002,stub,0200.1001.0002,01Jan2023_00h00m00s_7_hosts
+2023-01-01T00:00:00Z,isis-watcher,2,metric,4ffe::192:168:23:2/127,changed,old_cost:10,new_cost:12,0200.1001.0002,stub,0200.1001.0002,01Jan2023_00h00m00s_7_hosts,49.0002,12345,external,1
 ```
 
 * `2023-01-01T00:00:00Z` - event timestamp
@@ -253,6 +285,10 @@ docker-compose up -d
 * `stub` - subnet type
 * `0200.1001.0002` - since it's a stub network it has router id of terminated node.
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
+* `49.0002` - area number
+* `12345` - AS number
+* `external` - subnet type internal|external
+* `1` - subnet ext type 1|2. 0 for internal subnets
 *Summary: `0200.1001.0002` detected that metric of `4ffe::192:168:23:2/127` stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in IS-IS level 2*
 
 ### Listen-only mode. XDP in action.
