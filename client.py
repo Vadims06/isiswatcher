@@ -418,8 +418,7 @@ class WATCHER_CONFIG:
         diag_watcher_host.does_conntrack_exist_for_gre()
         # print(f"Please wait {diag_watcher_host.DUMP_FILTER_TIMEOUT} sec")
         diag_watcher_host.run()
-        if not diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip):
-            sys.exit()
+        diagnostic.IPTABLES_NAT_FOR_REMOTE_NETWORK_DEVICE_UNIQUE.check(self.gre_tunnel_network_device_ip)
         if diag_watcher_host.is_watcher_alive:
             diagnostic.IPTABLES_FRR_NETNS_FORWARD_TO_NETWORK_DEVICE_BEFORE_NAT.check(self.gre_tunnel_network_device_ip)
         if diag_watcher_host.is_network_device_alive:
