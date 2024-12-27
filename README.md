@@ -18,14 +18,14 @@ Watcher stores topology events/state to show historical network state, whereas T
 ![](./docs/functional-watcher-role.png)
 
 ### Supported IS-IS TLV 
-| TLV name                         | TLV |
-|----------------------------------|-----|
-| IS Reachability                  | 2   |
-| Extended IS Reachability   (new) | 22  |
-| IPv4 Internal Reachability (old) | 128 |
-| IPv4 External Reachability (old) | 130 |
-| Extended IPv4 Reachability (new) | 135 |
-| IPv6 Reachability                | 236 |  
+| TLV name                         | TLV | subTLV    |
+|----------------------------------|-----|-----------|
+| IS Reachability                  | 2   |           |
+| Extended IS Reachability   (new) | 22  | 6,8,12,13 |
+| IPv4 Internal Reachability (old) | 128 |           |
+| IPv4 External Reachability (old) | 130 |           |
+| Extended IPv4 Reachability (new) | 135 |           |
+| IPv6 Reachability                | 236 |           |
 
 ### Network architecture  
 Number of watchers is equal to the number of IS-IS areas and each Watcher is placed in individual network namespace. IS-IS LSDB sits in watcher's namespace and doesn't interact with other Watchers keeping it isolated.  
@@ -266,7 +266,8 @@ Make sure that:
 * `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
 * `49.0002` - area number
 * `12345` - AS number
-*Summary: `0200.1001.0003` detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1 in area 49.0002 in AS 12345*
+* `10.1.23.3` - Local IP address of detected node `0200.1001.0003` (available in 2.0.15)
+*Summary: `0200.1001.0003` on the interface with `10.1.23.3` IP address detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1 in area 49.0002 in AS 12345*
 
 ##### Logs sample 2  
 ```
