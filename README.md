@@ -267,6 +267,7 @@ Make sure that:
 * `49.0002` - area number
 * `12345` - AS number
 * `10.1.23.3` - Local IP address of detected node `0200.1001.0003` (available in 2.0.15)
+* `10.1.23.2` - Remote IP address relative to the detected node `0200.1001.0003` (available in 2.0.16)
 *Summary: `0200.1001.0003` on the interface with `10.1.23.3` IP address detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1 in area 49.0002 in AS 12345*
 
 ##### Logs sample 2  
