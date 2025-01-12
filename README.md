@@ -6,6 +6,12 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 * IS-IS neighbor adjacency Up/Down
 * IS-IS link cost changes
 * IS-IS networks appearance/disappearance from the topology
+* IS-IS TE attributes:
+ * Administrative Group (color, resource class)
+ * Maximum Link Bandwidth
+ * Maximum Reservable Link Bandwidth
+ * Unreserved Bandwidth
+ * Traffic Engineering Default Metric
 
 ## Architecture
 ![](./docs/isiswatcher_plus_topolograph_architecture.png)  
@@ -18,14 +24,14 @@ Watcher stores topology events/state to show historical network state, whereas T
 ![](./docs/functional-watcher-role.png)
 
 ### Supported IS-IS TLV 
-| TLV name                         | TLV | subTLV    |
-|----------------------------------|-----|-----------|
-| IS Reachability                  | 2   |           |
-| Extended IS Reachability   (new) | 22  | 6,8,12,13 |
-| IPv4 Internal Reachability (old) | 128 |           |
-| IPv4 External Reachability (old) | 130 |           |
-| Extended IPv4 Reachability (new) | 135 |           |
-| IPv6 Reachability                | 236 |           |
+| TLV name                         | TLV | subTLV                 |
+|----------------------------------|-----|------------------------|
+| IS Reachability                  | 2   |                        |
+| Extended IS Reachability   (new) | 22  | 3,6,8,9,10,11,12,13,18 |
+| IPv4 Internal Reachability (old) | 128 |                        |
+| IPv4 External Reachability (old) | 130 |                        |
+| Extended IPv4 Reachability (new) | 135 |                        |
+| IPv6 Reachability                | 236 |                        |
 
 ### Network architecture  
 Number of watchers is equal to the number of IS-IS areas and each Watcher is placed in individual network namespace. IS-IS LSDB sits in watcher's namespace and doesn't interact with other Watchers keeping it isolated.  
@@ -43,11 +49,20 @@ The demo shows how IS-IS watcher detected:
 ![](./docs/is_is_watcher_demo.gif)
 
 ## Discovering IS-IS logs in Kibana. Examples
+#### Cost attribute, metric
 IS-IS cost changes on links  
 ![](./docs/cost-changes-raw-logs.png)
 
+#### IS-IS adjacency
 Logs if IS-IS adjacency was Up/Down or any networks appeared/disappeared.  
 ![](./docs/host-updown-raw-logs.png)
+
+#### IS-IS TE metric
+Latest events about links with admin group **17** with unreserved bandwidth for priority of 0 less than 100Mbits
+![](./docs/kibana_discovery_te_log_with_admin_group_as_a_filter.png)
+
+#### Full IS-IS TE log
+![](./docs/kibana_discovery_te_log.png)
 
 #### Topolograph IS-IS Monitoring.
 Monitoring dashboard allows to see events on the timeline and on the topology. Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
@@ -199,7 +214,8 @@ docker-compose up -d
 Have been already created by `logstash-index-creator` container in compose yaml file.
 Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
 * `isis-watcher-costs-changes`
-* `isis-watcher-updown-events`     
+* `isis-watcher-temetric-changes`     
+* `isis-watcher-updown-events`
 ![](docs/kibana_index_template.png)   
 2. **Index Pattern**
 Create indices with the same name as index templates
@@ -209,7 +225,7 @@ new ELK 8.x `Management -> Stack Management -> Index Management -> [ Indices ]`
 then `Create index`
 * isis-watcher-costs-changes
 * isis-watcher-updown-events
-![](docs/kibana_indices.png)   
+* isis-watcher-temetric-changes
 3. **Data View**
 Create data view for two event types.
 Go to `Management -> Stack Management -> Data Views`
@@ -220,13 +236,14 @@ Index pattern: isis-watcher-costs-changes
 Timestamp field: use watcher time
 ```
 ![](docs/kibana_data_view.png)   
-Repeat the same for `isis-watcher-updown-events`
+Repeat the same for `isis-watcher-updown-events` and for `isis-watcher-temetric-changes`
 As a result, there are two data views should be listed
 ![](docs/kibana_data_view_list.png) 
 > Note
 What time to use @timestamp or watcher
 
 It's better to use `watcher` time, because connection between Watcher and  Logstash can be lost, but the watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
+
 
 4. **Additional checks**
 Make sure that:
@@ -259,7 +276,7 @@ Make sure that:
 * `2023-01-01T00:00:00Z` - event timestamp
 * `demo-watcher` - name of watcher
 * `1` - IS-IS level
-* `host` - event name: `host`, `network`, `metric`
+* `host` - event name: `host`, `network`, `metric`, `temetric`
 * `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
 * `down` - event status: `down`, `up`, `changed`
 * `0200.1001.0003` - event detected by this node.
@@ -278,7 +295,7 @@ Make sure that:
 * `2023-01-01T00:00:00Z` - event timestamp
 * `isis-watcher` - name of watcher
 * `2` - IS-IS level
-* `metric` - event name: `host`, `network`, `metric`
+* `metric` - event name: `host`, `network`, `metric`, `temetric`
 * `4ffe::192:168:23:2/127` - event object. Watcher detected an event related to 4ffe::192:168:23:2/127` subnet
 * `changed` - event status: `down`, `up`, `changed`
 * `10` - old cost
@@ -292,6 +309,53 @@ Make sure that:
 * `external` - subnet type internal|external
 * `1` - subnet ext type 1|2. 0 for internal subnets
 *Summary: `0200.1001.0002` detected that metric of `4ffe::192:168:23:2/127` stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in IS-IS level 2*
+
+##### Logs sample 3. TE  
+```
+2024-12-29T13:20:50.398Z,
+isis-watcher,1,temetric,0200.1001.0002,changed,0_17_19_20_21_22_26_29_30,1000000000,1000000000,1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056,11223344,0200.1001.0003,2024-07-28T18:03:05Z,49.0001,01Jan2023_00h00m00s_7_hosts,10.1.23.3,10.1.23.2
+
+* `2023-01-01T00:00:00Z` - event timestamp
+* `demo-watcher` - name of watcher
+* `1` - IS-IS level
+* `temetric` - event name: `host`, `network`, `metric`, `temetric`
+* `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
+* `changed` - event status: `down`, `up`, `changed`
+* `0_17_19_20_21_22_26_29_30` - 0, 17, 19, 20, 21, 22, 26, 29, 30 admin groups
+* `1000000000` - Maximum Link Bandwidth (Sub-TLV 9) bits per sec
+* `1000000000` - Maximum Reservable Link Bandwidth (Sub-TLV 10) bits per sec
+* `1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056` - Unreserved Bandwidth (Sub-TLV 11) for priority 0,..7 bits per sec
+* `11223344` - Traffic Engineering Default Metric (Sub-TLV 18)
+* `0200.1001.0003` - event detected by this node.
+* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
+* `49.0002` - area number
+* `12345` - AS number
+* `10.1.23.3` - Local IP address of detected node `0200.1001.0003` (available in 2.0.15)
+* `10.1.23.2` - Remote IP address relative to the detected node `0200.1001.0003` (available in 2.0.16)
+```
+
+FRR configuration
+```
+interface eth1
+ ip address 20.168.23.1/24
+ ip router isis lab
+ ipv6 address 4ffe::192:168:23:2/127
+ ipv6 router isis lab
+ isis network point-to-point
+ link-params
+  admin-grp 0x647a0001
+  enable
+  metric 11223344
+  max-bw 1e+08
+  unrsv-bw 0 1.23e+06
+  unrsv-bw 5 1.23e+06
+!
+router isis lab
+ net 49.0002.0200.1001.0002.00
+ mpls-te on
+ mpls-te router-address 10.10.10.2
+exit
+```
 
 ### Listen-only mode. XDP in action.
 If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  

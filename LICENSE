@@ -6,12 +6,13 @@
    This license is 99% compliant with Apache License 2.0, January 2004
    (http://www.apache.org/licenses/). The single difference between this 
    and Apache License 2.0 is that it doesn't include permissions to sell,
-   offer to sell without getting a commercial license from the Licensor.
+   offer to sell and/or sublicense without getting a commercial license 
+   from the Licensor.
    
    1. Definitions.
 
       "License" shall mean the terms and conditions for use, reproduction,
-      and distribution as defined by Sections 1 through 9 of this document.
+      and distribution as defined by Sections 1 through 10 of this document.
 
       "Licensor" shall mean the copyright owner or entity authorized by
       the copyright owner that is granting the License.
@@ -72,9 +73,10 @@
       worldwide, non-exclusive, no-charge, royalty-free, copyright license
       to reproduce for evaluation purposes, prepare Derivative Works of for 
       evaluation purposes, publicly display, publicly perform. This license 
-      doesn't grant a permission to sell, offer to sell the Work. Such permission
-      has to be granted by the Licensor via any form of electronic, or
-      written communication sent by the Licensor or its representatives.
+      doesn't grant a permission to sell, offer to sell the Work, and sublicense. 
+      Such permission has to be granted by the Licensor via any form of 
+      electronic, or written communication sent by the Licensor or its 
+      representatives.
 
    3. Grant of Patent License. Subject to the terms and conditions of
       this License, each Contributor hereby grants to You a perpetual,
@@ -177,5 +179,15 @@
       defend, and hold each Contributor harmless for any liability
       incurred by, or claims asserted against, such Contributor by reason
       of your accepting any such warranty or additional liability.
+
+   10. Additional Terms.
+      10.1 Free Usage. You are permitted to use the Work free of charge for 
+      non-commercial purposes.
+      10.2 Commercial License Requirement. By now, commercial product 
+      usage is free of charge, but this statement is revocable and can be 
+      changed in the future. Any such changes will have retroactive effect, 
+      meaning they will apply to all prior commercial usages of the Work. 
+      To obtain a commercial license, contact the Licensor at 
+      [email/contact information].
 
    END OF TERMS AND CONDITIONS
