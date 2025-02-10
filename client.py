@@ -1,4 +1,5 @@
 import argparse
+import copy
 import diagnostic
 import ipaddress
 import shutil
@@ -14,9 +15,9 @@ ruamel_yaml_default_mode.width = 2048  # type: ignore
 
 class ACTIONS(enum.Enum):
     ADD_WATCHER = "add_watcher"
-    STOP_WATCHER = "stop_watcher"
-    GET_STATUS = "get_status"
     DIAGNOSTIC = "diagnostic"
+    ENABLE_XDP = "enable_xdp"
+    DISABLE_XDP = "disable_xdp"
 
 
 class WATCHER_CONFIG:
@@ -280,14 +281,23 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         # IS-IS XDP filter, listen only
-        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
-        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
-        watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
+        if self.enable_xdp:
+            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
+            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
+            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
+        else:
+            del watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]
+            for d in watcher_config_yml['topology']['nodes']['h2']['stages']['create']['wait-for']:
+                if d.get("node") == self.ISIS_FILTER_NODE_NAME:
+                    d['node'] = 'h1'
         # Enable GRE after XDP filter
         watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+        self._do_save_watcher_config_file(watcher_config_yml)
+
+    def _do_save_watcher_config_file(self, _config):
         with open(self.watcher_config_file_path, "w") as f:
             s = StringIO()
-            ruamel_yaml_default_mode.dump(watcher_config_yml, s)
+            ruamel_yaml_default_mode.dump(_config, s)
             f.write(s.getvalue())
 
     def do_add_watcher_prechecks(self):
@@ -352,13 +362,21 @@ class WATCHER_CONFIG:
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
         # Tags
-        self.asn = input("AS number, where IS-IS is configured: ")
+        self.asn = input("AS number, where IS-IS is configured: [0]")
         if not self.asn and not self.asn.isdigit():
             self.asn = 0
         self.organisation_name = str(input("Organisation name: ")).lower()
-        self.watcher_name = str(input("watcher name: ")).lower().replace(" ", "-")
+        self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
+        self.enable_xdp = None
+        while self.enable_xdp is None:
+            enable_xdp_reply = input("Enable XDP? [y/N] ")
+            if not enable_xdp_reply:
+                self.enable_xdp = False
+            else:
+                if enable_xdp_reply.lower().strip() == 'y':
+                    self.enable_xdp = True
     
     def exec_cmds(self):
         return [
@@ -426,14 +444,38 @@ class WATCHER_CONFIG:
             if not is_passed:
                 diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
 
+    def enable_xdp(self):
+        self.import_from(watcher_num=args.watcher_num)
+        current_clab_config = self.watcher_config_file_yml
+        if not current_clab_config:
+            raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
+        current_clab_config['topology']['nodes'].setdefault(self.ISIS_FILTER_NODE_NAME, dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]) )
+        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
+        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
+        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
 
+        current_clab_config['topology']['nodes']['h2'].setdefault('stages', dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes']['h2']['stages']) )
+        self._do_save_watcher_config_file(current_clab_config)
+        print("XDP enabled")
+
+    def disable_xdp(self):
+        self.import_from(watcher_num=args.watcher_num)
+        current_clab_config = self.watcher_config_file_yml
+        if not current_clab_config:
+            raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
+        del current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]
+        for d in current_clab_config['topology']['nodes']['h2']['stages']['create']['wait-for']:
+            if d.get("node") == self.ISIS_FILTER_NODE_NAME:
+                d['node'] = 'h1'
+        self._do_save_watcher_config_file(current_clab_config)
+        print("XDP disabled")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Provisioning Watcher instances for tracking IS-IS topology changes"
     )
     parser.add_argument(
-        "--action", required=True, help="Options: add_watcher, stop_watcher, get_status, diagnostic"
+        "--action", required=True, help="Options: add_watcher, enable_xdp, disable_xdp, diagnostic"
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, type=int, help="Number of watcher"
