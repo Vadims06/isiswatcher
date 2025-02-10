@@ -365,6 +365,15 @@ To check XDP logs, run
 ```
 sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
+To enable/disable XDP
+```
+sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:latest python3 ./client.py --action enable_xdp --watcher_num <num>
+```
+##### Support
+Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
+If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
+
+
 ## Troubleshooting
 ##### Symptoms
 Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
@@ -418,8 +427,13 @@ You should see tracked changes of your network, i.e.
     db.adj_change.find({}).sort({_id: -1}).limit(2)
     db.cost_change.find({}).sort({_id: -1}).limit(2)
     ```
+    Sample output:   
+    ```
+    { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-isis.isis.log", "area_num" : "49.0002", "event_name" : "metric", 
+    ```
     > **Note**  
     > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
+    2. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
  ### Versions
  #### FRR
