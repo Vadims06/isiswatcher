@@ -1,7 +1,10 @@
 # IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start. The only thing is needed to configure manually is GRE tunnel setup on the Linux host.  
-> **Note**  
-> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you are interested in tracking IS-IS topology changes via BGP-LS.   
+
+> [!NOTE]
+> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you
+> are interested in tracking IS-IS topology changes via BGP-LS.
+
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
 * IS-IS link cost changes
@@ -17,8 +20,11 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 ![](./docs/isiswatcher_plus_topolograph_architecture.png)  
 #### Listen only mode
 The FRR container is isolated in an individual network namespace and the **XDP IS-IS filter** inspects all outgoing IS-IS advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, IS-IS LSP will be dropped. It prevents the network from populating by unexpected network prefixes.  
-> **Note**  
-> isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38), it means that IS-IS network changes can be shown on the network graph.
+
+> [!NOTE]
+> isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38)
+> , it means that IS-IS network changes can be shown on the network graph.
+
 ### Functional Role
 Watcher stores topology events/state to show historical network state, whereas Topolograph exhibits present network state and potential future outcomes.   
 ![](./docs/functional-watcher-role.png)
