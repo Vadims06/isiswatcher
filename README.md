@@ -1,24 +1,30 @@
 # IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start. The only thing is needed to configure manually is GRE tunnel setup on the Linux host.  
-> **Note**  
-> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you are interested in tracking IS-IS topology changes via BGP-LS.   
+
+> [!NOTE]
+> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you
+> are interested in tracking IS-IS topology changes via BGP-LS.
+
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
 * IS-IS link cost changes
 * IS-IS networks appearance/disappearance from the topology
 * IS-IS TE attributes:
- * Administrative Group (color, resource class)
- * Maximum Link Bandwidth
- * Maximum Reservable Link Bandwidth
- * Unreserved Bandwidth
- * Traffic Engineering Default Metric
+  * Administrative Group (color, resource class)
+  * Maximum Link Bandwidth
+  * Maximum Reservable Link Bandwidth
+  * Unreserved Bandwidth
+  * Traffic Engineering Default Metric
 
 ## Architecture
 ![](./docs/isiswatcher_plus_topolograph_architecture.png)  
 #### Listen only mode
 The FRR container is isolated in an individual network namespace and the **XDP IS-IS filter** inspects all outgoing IS-IS advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, IS-IS LSP will be dropped. It prevents the network from populating by unexpected network prefixes.  
-> **Note**  
-> isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38), it means that IS-IS network changes can be shown on the network graph.
+
+> [!NOTE]
+> isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38)
+> , it means that IS-IS network changes can be shown on the network graph.
+
 ### Functional Role
 Watcher stores topology events/state to show historical network state, whereas Topolograph exhibits present network state and potential future outcomes.   
 ![](./docs/functional-watcher-role.png)
@@ -112,12 +118,18 @@ Table below shows different options of possible setups, starting from the bare m
 * create a user for API authentication using `Local Registration` form on the Topolograph page, add your IP address in `API/Authorised source IP ranges`.
 Set variables in `.env` file:    
 
-> **Note**  
-> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and IS-IS Watcher run in their private network space*
+> [!NOTE]
+> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is
+>   hosted (if you run all demo on a single machine), do not put **localhost**,
+>   because ELK, Topolograph and IS-IS Watcher run in their private network
+>   space*
 > * `TOPOLOGRAPH_PORT` - by default `8080`
-> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or put your recently created user
+> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or
+>   put your recently created user
 > * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
-> * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will be uploaded, not from FRR 
+> * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will
+>   be uploaded, not from FRR
+
 3. Setup ELK (skip it, it's only needed for setup № 3)  
 * if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`.
 To create Index Templates, run:
@@ -133,9 +145,14 @@ sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.p
 ```
 xpack.license.self_generated.type: basic
 xpack.security.enabled: false
-```  
-> **Note about having Elastic config commented**
-    > When the Elastic output plugin fails to connect to the ELK host, it blocks all other outputs and ignores "EXPORT_TO_ELASTICSEARCH_BOOL" value from env file. Regardless of EXPORT_TO_ELASTICSEARCH_BOOL being False, it tries to connect to Elastic host. The solution - uncomment this portion of config in case of having running ELK.
+```
+
+> [!TIP]
+> When the Elastic output plugin fails to connect to the ELK host, it blocks all
+> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
+> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
+> connect to Elastic host. The solution - uncomment this portion of config in
+> case of having running ELK.
 
 4. Setup IS-IS Watcher
 ```bash
@@ -431,8 +448,11 @@ You should see tracked changes of your network, i.e.
     ```
     { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-isis.isis.log", "area_num" : "49.0002", "event_name" : "metric", 
     ```
-    > **Note**  
-    > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
+> [!NOTE]
+> If you see a single event in `docker logs logstash` it means that mongoDB
+> output is blocked, check if you have a connection to MongoDB
+> `docker exec -it logstash curl -v mongodb:27017`
+
     2. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
  ### Versions
