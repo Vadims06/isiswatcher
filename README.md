@@ -118,12 +118,18 @@ Table below shows different options of possible setups, starting from the bare m
 * create a user for API authentication using `Local Registration` form on the Topolograph page, add your IP address in `API/Authorised source IP ranges`.
 Set variables in `.env` file:    
 
-> **Note**  
-> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is hosted (if you run all demo on a single machine), do not put `localhost`, because ELK, Topolograph and IS-IS Watcher run in their private network space*
+> [!NOTE]
+> * `TOPOLOGRAPH_HOST` - *set the IP address of your host, where the docker is
+>   hosted (if you run all demo on a single machine), do not put **localhost**,
+>   because ELK, Topolograph and IS-IS Watcher run in their private network
+>   space*
 > * `TOPOLOGRAPH_PORT` - by default `8080`
-> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or put your recently created user
+> * `TOPOLOGRAPH_WEB_API_USERNAME_EMAIL` - by default `ospf@topolograph.com` or
+>   put your recently created user
 > * `TOPOLOGRAPH_WEB_API_PASSWORD` - by default `ospf`
-> * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will be uploaded, not from FRR 
+> * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will
+>   be uploaded, not from FRR
+
 3. Setup ELK (skip it, it's only needed for setup № 3)  
 * if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`.
 To create Index Templates, run:
@@ -139,9 +145,14 @@ sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.p
 ```
 xpack.license.self_generated.type: basic
 xpack.security.enabled: false
-```  
-> **Note about having Elastic config commented**
-    > When the Elastic output plugin fails to connect to the ELK host, it blocks all other outputs and ignores "EXPORT_TO_ELASTICSEARCH_BOOL" value from env file. Regardless of EXPORT_TO_ELASTICSEARCH_BOOL being False, it tries to connect to Elastic host. The solution - uncomment this portion of config in case of having running ELK.
+```
+
+> [!TIP]
+> When the Elastic output plugin fails to connect to the ELK host, it blocks all
+> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
+> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
+> connect to Elastic host. The solution - uncomment this portion of config in
+> case of having running ELK.
 
 4. Setup IS-IS Watcher
 ```bash
@@ -437,8 +448,11 @@ You should see tracked changes of your network, i.e.
     ```
     { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-isis.isis.log", "area_num" : "49.0002", "event_name" : "metric", 
     ```
-    > **Note**  
-    > If you see a single event in `docker logs logstash` it means that mongoDB output is blocked, check if you have a connection to MongoDB `docker exec -it logstash curl -v mongodb:27017`   
+> [!NOTE]
+> If you see a single event in `docker logs logstash` it means that mongoDB
+> output is blocked, check if you have a connection to MongoDB
+> `docker exec -it logstash curl -v mongodb:27017`
+
     2. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
  ### Versions
