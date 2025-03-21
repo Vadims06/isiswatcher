@@ -10,11 +10,11 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 * IS-IS link cost changes
 * IS-IS networks appearance/disappearance from the topology
 * IS-IS TE attributes:
- * Administrative Group (color, resource class)
- * Maximum Link Bandwidth
- * Maximum Reservable Link Bandwidth
- * Unreserved Bandwidth
- * Traffic Engineering Default Metric
+  * Administrative Group (color, resource class)
+  * Maximum Link Bandwidth
+  * Maximum Reservable Link Bandwidth
+  * Unreserved Bandwidth
+  * Traffic Engineering Default Metric
 
 ## Architecture
 ![](./docs/isiswatcher_plus_topolograph_architecture.png)  
