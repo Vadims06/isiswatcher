@@ -1,14 +1,16 @@
 import argparse
 import copy
-import diagnostic
-import ipaddress
-import shutil
-from ruamel.yaml import YAML
-from jinja2 import Environment, FileSystemLoader
-from io import StringIO
-import os, re
-import sys
 import enum
+import ipaddress
+import os
+import re
+import shutil
+from io import StringIO
+
+from jinja2 import Environment, FileSystemLoader
+from ruamel.yaml import YAML
+
+import diagnostic
 
 ruamel_yaml_default_mode = YAML()
 ruamel_yaml_default_mode.width = 2048  # type: ignore
@@ -30,6 +32,8 @@ class WATCHER_CONFIG:
     WATCHER_NODE_NAME = "isis-watcher"
     ISIS_FILTER_NODE_NAME = "receive_only_filter"
     ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
+    LOGROTATION_NODE_NAME = "logrotation"
+    LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
 
     def __init__(self, watcher_num, protocol="isis"):
         self.watcher_num = watcher_num
@@ -47,7 +51,7 @@ class WATCHER_CONFIG:
 
     def gen_next_free_number():
         """ Each Watcher installation has own sequence number starting from 1 """
-        watcher_seq_numbers = [int(folder_name.split('-')[0][-1]) for folder_name in WATCHER_CONFIG.get_existed_watchers() if '-' in folder_name]
+        watcher_seq_numbers = [int(folder_name.split('-')[0][7:]) for folder_name in WATCHER_CONFIG.get_existed_watchers() if '-' in folder_name]
         if not watcher_seq_numbers:
             return 1
         expected_numbers = set(range(1, max(watcher_seq_numbers) + 1))
@@ -280,6 +284,9 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'AREA_NUM': self.isis_area_num})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
+        # Logrotation
+        watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
+        watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
         # IS-IS XDP filter, listen only
         if self.enable_xdp:
             watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
