@@ -21,6 +21,17 @@ topology:
           wait-for:
             - node: h2
               stage: create
+    logrotation:
+      kind: linux
+      # https://github.com/Vadims06/docker-logrotate
+      image: vadims06/docker-logrotate:v1.0.0
+      env:
+        LOGROTATE_FILE_PATTERN: "*.log"
+        # don't rotate at all but truncate log, because only single log file is bind to this container
+        LOGROTATE_ROTATE: "0"
+        LOGROTATE_SIZE: "500M"
+        # once a day
+        LOGROTATE_CRON: "0 0 * * *"
     router:
       kind: linux
       image: vadims06/frr:v8.5.4_isis_over_gre # quay.io/frrouting/frr:9.1.0, 9.0.0, 9.0.1, 9.0.2, 9.1.0 IS-IS works over GRE, but doesn't dump LSP https://github.com/FRRouting/frr/issues/15654 for tracking. IS-IS doesn't work over GRE 8.5.4. 
