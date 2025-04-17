@@ -6,7 +6,8 @@ import os
 import re
 import shutil
 from io import StringIO
-
+import requests
+import sys
 from jinja2 import Environment, FileSystemLoader
 from ruamel.yaml import YAML
 
@@ -209,6 +210,31 @@ class WATCHER_CONFIG:
     def _get_digit_net_mask(ip_address_w_mask):
         return ipaddress.ip_interface(ip_address_w_mask).network.prefixlen
 
+    def _add_topolograph_host_to_env(self):
+        # open local .env file and replace TOPOLOGRAPH_HOST env
+        with open('.env', 'r') as f:
+            lines = f.readlines()
+        with open('.env', 'w') as f:
+            for line in lines:
+                if line.startswith('TOPOLOGRAPH_HOST'):
+                    f.write(f'TOPOLOGRAPH_HOST={self.host_interface_device_ip}\n')
+                    print(f"TOPOLOGRAPH_HOST set to {self.host_interface_device_ip} in .env\n")
+                else:
+                    f.write(line)
+
+    def do_check_topolograph_availability(self):
+        from dotenv import load_dotenv
+        load_dotenv()
+        # using TOPOLOGRAPH_* env variable check if get request is ok
+        _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
+        _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
+        r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
+        status_name = 'ok' if r_get.ok else 'bad'
+        print(f"Access to {_host}:{_port} is {status_name}")
+        if r_get.status_code != 200:
+            print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
+        return r_get.ok
+
     @staticmethod
     def get_nth_elem_from_iter(iterator, number):
         while number > 0:
@@ -368,6 +394,20 @@ class WATCHER_CONFIG:
         # Host interface name for NAT
         while not self.host_interface_device_ip:
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
+        # Topolograph's IP settings
+        self.enable_topolograph = None
+        while self.enable_topolograph is None:
+            enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
+            if not enable_topolograph_reply:
+                self.enable_topolograph = True
+            else:
+                if enable_topolograph_reply.lower().strip() == 'y':
+                    self.enable_topolograph = True
+                elif enable_topolograph_reply.lower().strip() == 'n':
+                    self.enable_topolograph = False
+        if self.enable_topolograph:
+            self._add_topolograph_host_to_env()
+            self.do_check_topolograph_availability()
         # Tags
         self.asn = input("AS number, where IS-IS is configured: [0]")
         if not self.asn and not self.asn.isdigit():
@@ -494,4 +534,8 @@ if __name__ == '__main__':
     allowed_actions = [actions.value for actions in ACTIONS]
     if args.action not in allowed_actions:
         raise ValueError(f"Not allowed action. Supported actions: {', '.join(allowed_actions)}")
-    watcher_conf = WATCHER_CONFIG.parse_command_args(args)
+    try:
+        watcher_conf = WATCHER_CONFIG.parse_command_args(args)
+    except KeyboardInterrupt:
+        print("\nInterrupted. Bye!")
+        sys.exit(1)
