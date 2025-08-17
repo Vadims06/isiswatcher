@@ -1,10 +1,10 @@
 services:
-  logstash:
+  isis-logstash:
     build:
       context: logstash/
       args:
         LOGSTASH_OSS_VERSION: $LOGSTASH_OSS_VERSION
-    container_name: logstash
+    container_name: isis-logstash
     volumes:
       - type: bind
         source: ./logstash/config/logstash.yml
