@@ -34,17 +34,17 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 2. Run the script to prepare environment:
 
     ```
-    ./prepare.sh
+    sudo ./prepare.sh
     ```
 
 3. Start the lab
     ```
-    sudo clab deploy --topo frr01.clab.yml
+    sudo clab deploy --topo isis01.clab.yml
     ```
 
 4. Check that Watcher is ready (usually it requires 10-15sec to be ready). Proceed to the next step once Watcher is ready.  
     ```
-    $ sudo docker logs clab-frr01-isis-watcher
+    sudo docker logs clab-frr01-isis-watcher
     ```
     Expected output:
     ```
@@ -59,7 +59,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 
 5. Start watching logs
     ```
-    sudo tail -f watcher/watcher.log
+    sudo tail -f watcher/logs/watcher1.isis.log
     ```
 
 6. Change IS-IS settings on lab' routers. Connect to a router in another terminal
@@ -101,7 +101,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 ### IS-IS Watcher logs location
 Available under `watcher` folder. To see them:
 ```
-sudo tail -f watcher/watcher.log
+sudo tail -f watcher/logs/watcher1.isis.log
 ```
 
 ### Logs sample 1  

@@ -31,7 +31,7 @@ topology:
         # FRR_PORT: "2608"
         WATCHER_INTERFACE: "eth1"
       binds:
-        - watcher/watcher.log:/home/watcher/watcher/logs/watcher.log
+        - watcher/logs/watcher1.isis.log:/home/watcher/watcher/logs/watcher.log
     router1:
       kind: linux
       image: frrouting/frr:v8.4.1

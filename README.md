@@ -158,6 +158,7 @@ xpack.security.enabled: false
 ```bash
 git clone https://github.com/Vadims06/isiswatcher.git
 cd isiswatcher
+cp .env.template .env
 ```
 Generate configuration files  
 `vadims06/isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
