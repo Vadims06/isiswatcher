@@ -1,6 +1,9 @@
 name: frr01
 
 topology:
+  defaults:
+    env-files:
+    - ../../.env
   nodes:
     # note, that the bridge br-dr must be created manually
     br-dr:
