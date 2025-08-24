@@ -229,7 +229,7 @@ docker-compose up -d
 
 ## Kibana settings
 1. **Index Templates** 
-Have been already created by `logstash-index-creator` container in compose yaml file.
+Have been already created by `isis-logstash-index-creator` container in compose yaml file.
 Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
 * `isis-watcher-costs-changes`
 * `isis-watcher-temetric-changes`     
