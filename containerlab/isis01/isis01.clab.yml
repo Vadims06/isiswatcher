@@ -5,8 +5,8 @@ topology:
     env-files:
     - ../../.env
   nodes:
-    # note, that the bridge br-dr must be created manually
-    br-dr:
+    # note, that the bridge isis-br-dr must be created manually
+    isis-br-dr:
       kind: bridge
     isis-watcher:
       kind: linux
@@ -75,9 +75,9 @@ topology:
 
   links:
     - endpoints: ["router1:eth1", "router3:eth1"]
-    - endpoints: ["router1:eth5","mgmt-net:router1-5"]
+    - endpoints: ["router1:eth5","mgmt-net:isis-router1-5"]
     - endpoints: ["router2:eth1", "router3:eth2"]
-    - endpoints: ["router3:eth4", "br-dr:eth13"]
+    - endpoints: ["router3:eth4", "isis-br-dr:isis-eth13"]
     - endpoints: ["router3:eth5", "router6:eth1"]
-    - endpoints: ["router4:eth1", "br-dr:eth14"]
-    - endpoints: ["router5:eth1", "br-dr:eth15"]
+    - endpoints: ["router4:eth1", "isis-br-dr:isis-eth14"]
+    - endpoints: ["router5:eth1", "isis-br-dr:isis-eth15"]

@@ -6,7 +6,7 @@ set -euo pipefail
 LAB_DIR="$(dirname "$0")"
 LOG_DIR="$LAB_DIR/watcher/logs"
 LOG_FILE="$LOG_DIR/watcher1.isis.log"
-BRIDGE_NAME="br-dr"
+BRIDGE_NAME="isis-br-dr"
 OWNER="systemd-network:systemd-journal"
 
 create_log_file() {
