@@ -48,6 +48,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 50
+    restart: unless-stopped
     depends_on:
       - isis-logstash-index-creator
     networks:
