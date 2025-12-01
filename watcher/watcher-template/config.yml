@@ -10,7 +10,6 @@ topology:
       kind: linux
       image: vadims06/isis-watcher:latest
       network-mode: container:router
-      startup-delay: 60
       env:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log" # Watcher -> Export. default is local dir logs/watcher.log
         ISISD_DUMP_FILE_DIR: "/var/log/frr/isisd.log"
