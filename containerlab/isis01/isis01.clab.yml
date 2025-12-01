@@ -32,6 +32,9 @@ topology:
         WATCHER_LOGFILE: "/home/watcher/watcher/logs/watcher.log"
         FRR_HOST: "127.0.0.1"
         # FRR_PORT: "2608"
+        ASN: 65100
+        WATCHER_NAME: lab-isis01
+        AREA_NUM: '49.0001'
         WATCHER_INTERFACE: "eth1"
       binds:
         - watcher/logs/watcher1.isis.log:/home/watcher/watcher/logs/watcher.log
