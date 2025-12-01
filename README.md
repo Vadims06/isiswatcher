@@ -1,9 +1,5 @@
 # IS-IS Topology Watcher
-IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start. The only thing is needed to configure manually is GRE tunnel setup on the Linux host.  
-
-> [!NOTE]
-> Upvote in [issues/1](https://github.com/Vadims06/isiswatcher/issues/1) if you
-> are interested in tracking IS-IS topology changes via BGP-LS.
+IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through either a specially established IS-IS adjacency (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start.
 
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
@@ -17,9 +13,18 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
   * Traffic Engineering Default Metric
 
 ## Architecture
+
+### Connection Modes
+
+IS-IS Watcher supports two connection modes:
+
+#### GRE Mode (Traditional)
+The FRR container is isolated in an individual network namespace and establishes an IS-IS adjacency over a GRE tunnel with a network device. The **XDP IS-IS filter** inspects all outgoing IS-IS advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, IS-IS LSP will be dropped. It prevents the network from populating by unexpected network prefixes.
+
+#### BGP-LS Mode (New)
+The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise IS-IS topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the IS-IS watcher component. This mode eliminates the need for GRE tunnels and IS-IS adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
+
 ![](./docs/isiswatcher_plus_topolograph_architecture.png)  
-#### Listen only mode
-The FRR container is isolated in an individual network namespace and the **XDP IS-IS filter** inspects all outgoing IS-IS advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, IS-IS LSP will be dropped. It prevents the network from populating by unexpected network prefixes.  
 
 > [!NOTE]
 > isiswatcher:v1.0 is compatible with [topolograph:v2.38](https://github.com/Vadims06/topolograph/releases/tag/v2.38)
@@ -40,7 +45,8 @@ Watcher stores topology events/state to show historical network state, whereas T
 | IPv6 Reachability                | 236 |                        |
 
 ### Network architecture  
-Number of watchers is equal to the number of IS-IS areas and each Watcher is placed in individual network namespace. IS-IS LSDB sits in watcher's namespace and doesn't interact with other Watchers keeping it isolated.  
+**GRE Mode**: Number of watchers is equal to the number of IS-IS areas and each Watcher is placed in individual network namespace. IS-IS LSDB sits in watcher's namespace and doesn't interact with other Watchers keeping it isolated.  
+**BGP-LS Mode**: Each watcher connects to a BGP-LS capable router. Multiple watchers can connect to the same router if it advertises multiple IS-IS areas, or each watcher can connect to different routers.  
 ![](./docs/GRE_FRR_individual_instances.png)  
 
 ## Demo
@@ -107,13 +113,28 @@ sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
 Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. The following setup describes setup №1 and №2. 
 | № | Deployment size                                                                            | Number of compose files | Text file logs | View changes on network map | Zabbix/HTTP/Messengers notification | Searching events by any field any time |
 |---|--------------------------------------------------------------------------------------------|-------------------------|----------------|-----------------------------|-------------------------------------|----------------------------------------|
-| 1 | Bare minimum. Containerlab                                                                 |            0            |        +       |              -              |                  -                  |                    -                   |
-| 2 | 1. Local Topolograph  <br>2. local compose file with ELK **disabled** (commented) |            2            |        +       |              +              |                  +                  |                    -                   |
-| 3 | 1. Local Topolograph  <br>2. local compose file with ELK **enabled**              |            3            |        +       |              +              |                  +                  |                    +                   |
+| 1 | Bare minimum. Containerlab                                                                 |            0            |        ✅       |              ❌              |                  ❌                  |                    ❌                   |
+| 2 | 1. Local Topolograph  <br>2. local compose file with ELK **disabled** (commented) |            2            |        ✅       |              ✅              |                  ✅                  |                    ❌                   |
+| 3 | 1. Local Topolograph  <br>2. local compose file with ELK **enabled**              |            3            |        ✅       |              ✅              |                  ✅                  |                    ✅                   |
 
 #### Setup №2. Text logs + timeline of network changes on Topolograph 
 1. Choose a Linux host with Docker installed
-2. Setup Topolograph  
+2. Run script:  
+```bash
+curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
+chmod +x install.sh
+sudo ./install.sh
+```   
+It will:  
+* Install Docker, Containerlab, Git, and conntrack (if not already installed)
+* Install and start Topolograph
+* Guide you through IS-IS Watcher setup (GRE or BGP-LS mode)
+* Configure watcher for either local Containerlab or network device deployment
+* Start Logstash for log export
+
+Alternatively, you can setup manually:
+
+3. Setup Topolograph  
 * launch your own Topolograph on docker using [topolograph-docker](https://github.com/Vadims06/topolograph-docker) 
 * create a user for API authentication using `Local Registration` form on the Topolograph page, add your IP address in `API/Authorised source IP ranges`.
 Set variables in `.env` file:    
@@ -165,7 +186,10 @@ Generate configuration files
 ```
 sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action add_watcher
 ```   
-The output:
+The script will prompt you to choose a connection mode: **GRE** or **BGP-LS**.
+
+#### GRE Mode Setup
+When you select GRE mode, you'll see the following output:
 ```
 +---------------------------+                                        
 |  Watcher Host             |                       +-------------------+
@@ -183,9 +207,40 @@ The output:
 The script will create:
 1. a folder under `watcher` folder with FRR configuration under `router` folder
 2. a containerlab configuration file with network settings
-3. an individual watcher log file in `watcher` folder.  
+3. an individual watcher log file in `watcher` folder.
 
-To stop IS-IS routes from being installed in the host's routing table, we the following policy has been applied on the watcher:
+#### BGP-LS Mode Setup
+When you select BGP-LS mode, you'll see:
+```
++---------------------------+                                        
+||  Watcher Host             |                       +-------------------+
+||  +------------+           |                       | Network Router    |
+||  | bgplswatcher|          |                       |                   |
+||  | (GoBGP)     |<---------+BGP Session [1][2]---+ | BGP Session [1][2]|
+||  |      [gRPC] |          |                       |    ^              |
+||  |        |    |          |                       |    |              |
+||  |        v    |          |                       | BGP-LS            |
+||  | isis-watcher|          |                       |    ^              |
+||  | (Python)    |          |                       |    |              |
+||  |             |          |                       | IS-IS [5]         |
+||  +------------+           |                       |                   |
+||                           |                       +-------------------+
++---------------------------+                                        
+```
+You'll be prompted for:
+- **[1] Router IP address (BGP peer)** - IP address of the router running BGP-LS
+- **[2] Router AS number** - AS number of the BGP-LS router
+- **[3] Watcher AS number** - AS number for the watcher
+- **[4] Watcher router-id** - Router ID for the watcher (IP address format)
+- **[5] IS-IS area number** - IS-IS area being monitored (format: 49.xxxx)
+- **[6] Passive mode** - Whether to use passive BGP mode (y/N)
+
+The script will create:
+1. a folder under `watcher` folder with bgplswatcher configuration
+2. a containerlab configuration file
+3. an individual watcher log file in `watcher` folder
+
+To stop IS-IS routes from being installed in the host's routing table, we the following policy has been applied on the watcher (GRE mode only):
 ```bash
 # frr/config/isisd.conf
 route-map TO_KERNEL deny 200
@@ -198,18 +253,30 @@ ip protocol isis route-map TO_KERNEL
 [Install](https://containerlab.srlinux.dev/install/) containerlab
 To start the watcher run the following command. `clab deploy` is like a `docker compose up -d` command   
 ```
-sudo clab deploy --topo watcher/watcher1-tun1025/config.yml
+sudo clab deploy --topo watcher/watcher<num>-gre<num>-isis/config.yml
 ```
-It will create:
+For BGP-LS mode:
+```
+sudo clab deploy --topo watcher/watcher<num>-bgpls-isis/config.yml
+```
+
+**GRE Mode** will create:
 * Individual network namespace for Watcher and FRR
 * A pair of tap interfaces to connect the watcher to Linux host
 * GRE tunnel in Watcher's namespace
 * NAT settings for GRE traffic
 * FRR & Watcher instance
-* assign XDP IS-IS filter on watcher's tap interface
+* assign XDP IS-IS filter on watcher's tap interface (if enabled)
 
+**BGP-LS Mode** will create:
+* bgplswatcher (GoBGP) container for BGP-LS session
+* IS-IS watcher container connected via gRPC
+* Log rotation container
 
-6. Setup GRE tunnel from the network device to the host with the Watcher. An example for Cisco
+6. Configure Network Device
+
+#### For GRE Mode:
+Setup GRE tunnel from the network device to the host with the Watcher. An example for Cisco:
 
 ```bash
 interface gigabitether0/1
@@ -220,7 +287,46 @@ tunnel destination <host-ip>
 ip router isis <name>
 isis network point-to-point
 ```
-It's needed to have a minimum one GRE tunnel to an area, which is needed to be monitored. If the IS-IS domain has multiple areas, setup one GRE in each area. It's a restriction of Link State architecture to know about new/old adjacency or link cost changes via LSPs per area basis only. 
+It's needed to have a minimum one GRE tunnel to an area, which is needed to be monitored. If the IS-IS domain has multiple areas, setup one GRE in each area. It's a restriction of Link State architecture to know about new/old adjacency or link cost changes via LSPs per area basis only.
+
+#### For BGP-LS Mode:
+Configure the network router to advertise IS-IS topology via BGP-LS. The router must:
+- Support BGP-LS (BGP Link-State) protocol
+- Be configured to redistribute IS-IS topology into BGP-LS
+- Establish a BGP session with the watcher's bgplswatcher instance
+
+Example configuration for routers supporting BGP-LS (syntax varies by vendor):
+
+**Juniper JunOS:**
+> **Version Requirements:**
+> - Starting with Junos OS Release 14.2 (M Series, MX Series, or T Series routers), the traffic engineering database only exported RSVP-TE topology information
+> - Starting in Junos OS Release 17.4R1, TED exports non RSVP-TE topology information as well
+> - Starting in Junos OS Release 20.4R1, you can configure IS-IS traffic engineering to store IPv6 information in the traffic engineering database (TED) in addition to IPv4 addresses
+
+```bash
+# Configure policy to import IS-IS and OSPF into TED
+set protocols mpls traffic-engineering database import policy ted2nlri
+set policy-options policy-statement ted2nlri term 1 from protocol isis
+set policy-options policy-statement ted2nlri term 1 from protocol ospf
+set policy-options policy-statement ted2nlri term 1 then accept
+set policy-options policy-statement ted2nlri term 2 then reject
+
+# Configure IS-IS traffic engineering and BGP-LS export
+set protocols isis traffic-engineering l3-unicast-topology
+set protocols mpls traffic-engineering database import l3-unicast-topology bgp-link-state
+set protocols mpls traffic-engineering database import policy ted2nlri
+
+# Configure BGP export policy for IS-IS
+set protocols bgp export isis2bgp
+set policy-options policy-statement isis2bgp term 1 from protocol isis
+set policy-options policy-statement isis2bgp term 1 then accept
+```
+
+**Cisco IOS XR**: TODO <config sample>
+
+**Mikrotik**: BGP-LS is not supported
+
+The watcher will connect to the router's BGP-LS peer IP address specified during configuration. 
 
 7. Start log export to Topolograph and/or ELK
 ```
@@ -397,6 +503,8 @@ If you faced with XDP errors - skip it while generating config file or use `--ac
 Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
 
 ##### Steps:
+
+**For GRE Mode:**
 1. Run diagnostic script. It will check **IS-IS Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
 
     ```
@@ -404,7 +512,7 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     ``` 
 2. Login on FRR, check adjancency:   
     ```
-    sudo docker exec -it watcher<num>-gre<num>-router vtysh
+    sudo docker exec -it watcher<num>-gre<num>-isis-router vtysh
     show isis neighbor
     ```
     if there is no IS-IS neighbor, ping remote end of GRE tunnel from the Watcher. At the same time, make tcpdump on watcher's interface and check counters of iptables   
@@ -417,11 +525,30 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     sudo conntrack -D -p 47
     ```
     Check ICMP ping packets on Watcher's host and on network device.
+
+**For BGP-LS Mode:**
+1. Check bgplswatcher container logs:
+    ```
+    sudo docker logs watcher<num>-bgpls-isis-bgplswatcher
+    ```
+2. Verify BGP session is established:
+    - Check bgplswatcher logs for BGP session status
+    - Verify router is configured to accept BGP connection from watcher
+    - Check if router is advertising BGP-LS updates
+3. Check IS-IS watcher container logs:
+    ```
+    sudo docker logs watcher<num>-bgpls-isis-isis-watcher
+    ```
+4. Verify gRPC connection between bgplswatcher and isis-watcher:
+    - Check that gRPC port (default: 50100+watcher_num for IS-IS) is accessible
+    - Verify both containers are running and can communicate
 ##### Symptoms
 Dashboard page is blank. Events are not present on OSPF/IS-IS Monitoring page.
 ##### Steps:
-IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
-1. Check if FRR tracks IS-IS changes in `./watcher/logs/watcher...log` file (previous case)   
+**GRE Mode**: IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.  
+**BGP-LS Mode**: IS-IS Watcher consists of: bgplswatcher (GoBGP) [1] -> Watcher [2] -> Logstash [3] -> Topolograph & ELK & Zabbix & WebHooks.
+
+1. Check if topology changes are tracked in `./watcher/logs/watcher...log` file (previous case)   
 You should see tracked changes of your network, i.e. 
     ```
     2024-10-08T22:54:54Z,watcher1,1,network,4ffe::192:168:145:4/127,changed,old_cost:44,new_cost:4,0200.1001.0004,,49.0002,12345,internal,0
@@ -440,10 +567,10 @@ You should see tracked changes of your network, i.e.
     mongo mongodb://$MONGO_INITDB_ROOT_USERNAME:$MONGO_INITDB_ROOT_PASSWORD@mongodb:27017/admin?gssapiServiceName=mongodb
     use admin
     ```
-    Check the last two/N records in adjacency changes (`adj_change`) or cost changes (`cost_change`)
+    Check the last two/N records in adjacency changes (`isis_neighbor_up_down`) or cost changes (`isis_link_cost_change`)
     ```
-    db.adj_change.find({}).sort({_id: -1}).limit(2)
-    db.cost_change.find({}).sort({_id: -1}).limit(2)
+    db.isis_neighbor_up_down.find({}).sort({_id: -1}).limit(2)
+    db.isis_link_cost_change.find({}).sort({_id: -1}).limit(2)
     ```
     Sample output:   
     ```

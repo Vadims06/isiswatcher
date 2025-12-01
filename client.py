@@ -5,11 +5,18 @@ import ipaddress
 import os
 import re
 import shutil
+import warnings
 from io import StringIO
 import requests
 import sys
 from jinja2 import Environment, FileSystemLoader
 from ruamel.yaml import YAML
+
+try:
+    from cryptography.utils import CryptographyDeprecationWarning
+    warnings.filterwarnings("ignore", category=CryptographyDeprecationWarning)
+except ImportError:
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="cryptography")
 
 import diagnostic
 
@@ -35,10 +42,13 @@ class WATCHER_CONFIG:
     ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
     LOGROTATION_NODE_NAME = "logrotation"
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
+    BGPLSWATCHER_NODE_NAME = "bgplswatcher"
+    BGPLSWATCHER_IMAGE = "vadims06/bgplswatcher:latest"
 
     def __init__(self, watcher_num, protocol="isis"):
         self.watcher_num = watcher_num
         # default
+        self.connection_mode = "gre"  # "gre" or "bgpls"
         self.gre_tunnel_network_device_ip = ""
         self.gre_tunnel_ip_w_mask_network_device = ""
         self.gre_tunnel_ip_w_mask_watcher = ""
@@ -49,6 +59,16 @@ class WATCHER_CONFIG:
         self.asn = 0
         self.organisation_name = ""
         self.watcher_name = ""
+        self.enable_xdp = False
+        self.enable_topolograph = False
+        # BGP-LS specific attributes
+        self.bgpls_router_ip = ""
+        self.bgpls_router_as = 0
+        self.bgpls_watcher_as = 0
+        self.bgpls_router_id = ""
+        self.bgpls_passive_mode = False
+        self.bgpls_listen_port = 50051
+        self.bgpls_grpc_port = 0
 
     def gen_next_free_number():
         """ Each Watcher installation has own sequence number starting from 1 """
@@ -70,16 +90,23 @@ class WATCHER_CONFIG:
 
     def import_from(self, watcher_num):
         """
-        Browse a folder directory and find a folder with watcher num. Parse GRE tunnel
+        Browse a folder directory and find a folder with watcher num. Parse GRE tunnel or BGP-LS
         """
-        # watcher1-gre1025-ospf
-        watcher_re = re.compile("(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-gre(?P<gre_num>\d+)(-(?P<proto>[a-zA-Z]+))?")
+        # watcher1-gre1025-ospf or watcher1-bgpls-isis
+        watcher_re_gre = re.compile(r"(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-gre(?P<gre_num>\d+)(-(?P<proto>[a-zA-Z]+))?")
+        watcher_re_bgpls = re.compile(r"(?P<name>[a-zA-Z]+)(?P<watcher_num>\d+)-bgpls(-(?P<proto>[a-zA-Z]+))?")
         for file in self.get_existed_watchers():
-            watcher_match = watcher_re.match(file)
+            watcher_match_gre = watcher_re_gre.match(file)
+            watcher_match_bgpls = watcher_re_bgpls.match(file)
+            watcher_match = watcher_match_gre or watcher_match_bgpls
             if watcher_match and watcher_match.groupdict().get("watcher_num", "") == str(watcher_num):
                 # these two attributes are needed to build paths
                 self.protocol = watcher_match.groupdict().get("proto") if watcher_match.groupdict().get("proto") else self.protocol
-                self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                if watcher_match_gre:
+                    self.connection_mode = "gre"
+                    self.gre_tunnel_number = int(watcher_match.groupdict().get("gre_num", 0))
+                elif watcher_match_bgpls:
+                    self.connection_mode = "bgpls"
                 for label, value in self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).items():
                     setattr(self, label, value)
                 break
@@ -135,7 +162,10 @@ class WATCHER_CONFIG:
 
     @property
     def watcher_folder_name(self):
-        return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}-{self.protocol}"
+        if self.connection_mode == "bgpls":
+            return f"watcher{self.watcher_num}-bgpls-{self.protocol}"
+        else:
+            return f"watcher{self.watcher_num}-gre{self.gre_tunnel_number}-{self.protocol}"
 
     @property
     def watcher_log_file_name(self):
@@ -181,6 +211,10 @@ class WATCHER_CONFIG:
     @property
     def isis_watcher_folder_path(self):
         return os.path.join(self.watcher_folder_path, self.WATCHER_NODE_NAME)
+
+    @property
+    def bgplswatcher_folder_path(self):
+        return os.path.join(self.watcher_folder_path, self.BGPLSWATCHER_NODE_NAME)
         
     @property
     def netns_name(self):
@@ -203,7 +237,7 @@ class WATCHER_CONFIG:
     @staticmethod
     def do_check_area_num(area_num):
         """ 49.xxxx """
-        area_match = re.match('^49\.\d{4}$', area_num)
+        area_match = re.match(r'^49\.\d{4}$', area_num)
         return area_match.group(0) if area_match else ""
 
     @staticmethod
@@ -229,14 +263,19 @@ class WATCHER_CONFIG:
         from dotenv import load_dotenv
         load_dotenv()
         # using TOPOLOGRAPH_* env variable check if get request is ok
-        _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
-        _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
-        r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
-        status_name = 'ok' if r_get.ok else 'bad'
-        print(f"Access to {_host}:{_port} is {status_name}")
-        if r_get.status_code != 200:
-            print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
-        return r_get.ok
+        try:
+            _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
+            _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
+            r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
+            status_name = 'ok' if r_get.ok else 'bad'
+            print(f"Access to {_host}:{_port} is {status_name}")
+            if r_get.status_code != 200:
+                print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
+            return r_get.ok
+        except Exception as e:
+            print(f"Warning: Could not check Topolograph availability: {e}")
+            print("Continuing with watcher setup...")
+            return False
 
     @staticmethod
     def get_nth_elem_from_iter(iterator, number):
@@ -249,7 +288,34 @@ class WATCHER_CONFIG:
     def is_network_the_same(ip_address_w_mask_1, ip_address_w_mask_2):
         return ipaddress.ip_interface(ip_address_w_mask_1).network == ipaddress.ip_interface(ip_address_w_mask_2).network
 
+    def generate_bgplswatcher_config(self):
+        """Generate config.toml for bgplswatcher (GoBGP)"""
+        config_toml_path = os.path.join(self.bgplswatcher_folder_path, "config.toml")
+        # topolograph-watcher-endpoint format: localhost:port (both containers use host network mode)
+        topolograph_endpoint = f"localhost:{self.bgpls_grpc_port}"
+        
+        config_content = f"""[global.config]
+  as = {self.bgpls_watcher_as}
+  router-id = "{self.bgpls_router_id}"
+  topolograph-watcher-endpoint = "{topolograph_endpoint}"
+
+[[neighbors]]
+  [neighbors.config]
+    neighbor-address = "{self.bgpls_router_ip}"
+    peer-as = {self.bgpls_router_as}
+    topolograph-watcher-endpoint = "{topolograph_endpoint}"
+"""
+        if self.bgpls_passive_mode:
+            config_content += "    passive-mode = true\n"
+        
+        with open(config_toml_path, "w") as f:
+            f.write(config_content)
+
     def create_folder_with_settings(self):
+        if self.connection_mode == "bgpls":
+            self.create_folder_with_settings_bgpls()
+            return
+        # GRE mode (existing implementation)
         # watcher folder
         os.mkdir(self.watcher_folder_path)
         # isis-watcher folder
@@ -330,6 +396,98 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
         self._do_save_watcher_config_file(watcher_config_yml)
 
+    def create_folder_with_settings_bgpls(self):
+        """Create folder structure and config for BGP-LS mode"""
+        # watcher folder
+        os.mkdir(self.watcher_folder_path)
+        # logs folder
+        watcher_logs_folder_path = os.path.join(self.watcher_root_folder_path, "logs")
+        if not os.path.exists(watcher_logs_folder_path):
+            os.mkdir(watcher_logs_folder_path)
+        # Create log file
+        shutil.copyfile(
+            src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
+            dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
+        )
+        os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
+        # bgplswatcher folder
+        os.mkdir(self.bgplswatcher_folder_path)
+        # Generate bgplswatcher config.toml
+        self.generate_bgplswatcher_config()
+        # Generate containerlab config.yml
+        watcher_config_yml = copy.deepcopy(self.watcher_config_template_yml)
+        watcher_config_yml["name"] = self.watcher_folder_name
+        # Remove nodes that are not needed for BGP-LS
+        if 'router' in watcher_config_yml['topology']['nodes']:
+            del watcher_config_yml['topology']['nodes']['router']
+        if 'h1' in watcher_config_yml['topology']['nodes']:
+            del watcher_config_yml['topology']['nodes']['h1']
+        if 'h2' in watcher_config_yml['topology']['nodes']:
+            del watcher_config_yml['topology']['nodes']['h2']
+        if self.ISIS_FILTER_NODE_NAME in watcher_config_yml['topology']['nodes']:
+            del watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]
+        # Remove links section
+        if 'links' in watcher_config_yml['topology']:
+            del watcher_config_yml['topology']['links']
+        # Store BGP-LS config in labels
+        watcher_config_yml['topology']['defaults'].setdefault('labels', {}).update({
+            'connection_mode': 'bgpls',
+            'bgpls_router_ip': self.bgpls_router_ip,
+            'bgpls_router_as': self.bgpls_router_as,
+            'bgpls_watcher_as': self.bgpls_watcher_as,
+            'bgpls_router_id': self.bgpls_router_id,
+            'bgpls_passive_mode': self.bgpls_passive_mode,
+            'bgpls_grpc_port': self.bgpls_grpc_port,
+            'area_num': self.isis_area_num,
+            'asn': self.asn,
+            'organisation_name': self.organisation_name,
+            'watcher_name': self.watcher_name,
+        })
+        # bgplswatcher node
+        watcher_config_yml['topology']['nodes'][self.BGPLSWATCHER_NODE_NAME] = {
+            'kind': 'linux',
+            'image': self.BGPLSWATCHER_IMAGE,
+            'network-mode': 'host',
+            'binds': [
+                f'bgplswatcher/config.toml:/app/config.toml:ro'
+            ],
+        }
+        # isis-watcher node (BGP mode)
+        # Ensure we have a clean node structure
+        watcher_node = watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]
+        watcher_node['image'] = 'vadims06/isis-watcher:latest'
+        watcher_node['network-mode'] = 'host'
+        # Remove any existing entrypoint/cmd to avoid conflicts
+        if 'entrypoint' in watcher_node:
+            del watcher_node['entrypoint']
+        if 'cmd' in watcher_node:
+            del watcher_node['cmd']
+        # Set cmd - containerlab uses cmd to override container command
+        # Note: This will be passed as arguments to the existing entrypoint
+        # So we need to set entrypoint to the script and cmd to the argument
+        watcher_node['entrypoint'] = '/entrypoint.sh'
+        watcher_node['cmd'] = 'bgp'
+        watcher_node['binds'] = [f"../logs/{self.watcher_log_file_name}:/home/watcher/watcher/logs/watcher.log"]
+        watcher_node['env'] = {
+            'BGP_GRPC_PORT': str(self.bgpls_grpc_port),
+            'WATCHER_LOGFILE': '/home/watcher/watcher/logs/watcher.log',
+            'ASN': self.asn,
+            'WATCHER_NAME': self.watcher_name,
+            'AREA_NUM': self.isis_area_num,
+        }
+        # Remove stages if they reference deleted nodes
+        if 'stages' in watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]:
+            stages = watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['stages']
+            if 'create' in stages and 'wait-for' in stages['create']:
+                stages['create']['wait-for'] = [
+                    wait_item for wait_item in stages['create']['wait-for']
+                    if wait_item.get('node') not in ['h1', 'h2', 'router', self.ISIS_FILTER_NODE_NAME]
+                ]
+        # logrotation node
+        watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
+        watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
+        self._do_save_watcher_config_file(watcher_config_yml)
+
     def _do_save_watcher_config_file(self, _config):
         with open(self.watcher_config_file_path, "w") as f:
             s = StringIO()
@@ -338,7 +496,10 @@ class WATCHER_CONFIG:
 
     def do_add_watcher_prechecks(self):
         if os.path.exists(self.watcher_folder_path):
-            raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
+            if self.connection_mode == "bgpls":
+                raise ValueError(f"Watcher{self.watcher_num} with BGP-LS already exists")
+            else:
+                raise ValueError(f"Watcher{self.watcher_num} with GRE{self.gre_tunnel_number} already exists")
         # TODO, check if GRE with the same tunnel destination already exist without root access
 
     @staticmethod
@@ -358,7 +519,105 @@ class WATCHER_CONFIG:
 +---------------------------+                                        
         """)
 
+    @staticmethod
+    def do_print_banner_bgpls():
+        print("""
++---------------------------+                                        
+|  Watcher Host             |                       +-------------------+
+|  +---------------+        |                       | Network Router    |
+|  | bgplswatcher  |        |                       |                   |
+|  | (GoBGP)       |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
+|  |      [gRPC]   |        |                       |    ^              |
+|  |        |      |        |                       |    |              |
+|  |        v      |        |                       | BGP-LS            |
+|  | isis-watcher  |        |                       |    ^              |
+|  | (Python)      |        |                       |    |              |
+|  |               |        |                       | IS-IS [5]         |
+|  +---------------+        |                       |                   |
+|                           |                       +-------------------+
++---------------------------+                                        
+        """)
+
+    def add_watcher_dialog_bgpls(self):
+        # Router IP address (BGP peer)
+        while not self.bgpls_router_ip:
+            self.bgpls_router_ip = self.do_check_ip(input("[1]Router IP address (BGP peer) [x.x.x.x]: "))
+        # Router AS number
+        while not self.bgpls_router_as:
+            router_as_input = input("[2]Router AS number: ")
+            if router_as_input.isdigit():
+                self.bgpls_router_as = int(router_as_input)
+            else:
+                print("Please provide a valid AS number")
+        # Watcher AS number
+        while not self.bgpls_watcher_as:
+            watcher_as_input = input("[3]Watcher AS number: ")
+            if watcher_as_input.isdigit():
+                self.bgpls_watcher_as = int(watcher_as_input)
+            else:
+                print("Please provide a valid AS number")
+        # Watcher router-id
+        while not self.bgpls_router_id:
+            self.bgpls_router_id = self.do_check_ip(input("[4]Watcher router-id [x.x.x.x]: "))
+        # ISIS settings (for labeling/logging)
+        while not self.isis_area_num:
+            self.isis_area_num = self.do_check_area_num(input("[5]IS-IS area number [49.xxxx]: "))
+        # Passive mode
+        self.bgpls_passive_mode = None
+        while self.bgpls_passive_mode is None:
+            passive_mode_reply = input("[6]Passive mode? [y/N] ")
+            if not passive_mode_reply:
+                self.bgpls_passive_mode = False
+            else:
+                if passive_mode_reply.lower().strip() == 'y':
+                    self.bgpls_passive_mode = True
+                elif passive_mode_reply.lower().strip() == 'n':
+                    self.bgpls_passive_mode = False
+        # Calculate gRPC port based on protocol
+        if self.protocol == "isis":
+            self.bgpls_grpc_port = 50100 + self.watcher_num
+        elif self.protocol == "ospf":
+            self.bgpls_grpc_port = 50200 + self.watcher_num
+        else:
+            self.bgpls_grpc_port = 50100 + self.watcher_num  # Default to ISIS port
+        # Topolograph's IP settings
+        self.enable_topolograph = None
+        while self.enable_topolograph is None:
+            enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
+            if not enable_topolograph_reply:
+                self.enable_topolograph = True
+            else:
+                if enable_topolograph_reply.lower().strip() == 'y':
+                    self.enable_topolograph = True
+                elif enable_topolograph_reply.lower().strip() == 'n':
+                    self.enable_topolograph = False
+        if self.enable_topolograph:
+            # For BGP-LS, we need host IP for Topolograph
+            while not self.host_interface_device_ip:
+                self.host_interface_device_ip = self.do_check_ip(input("Watcher host IP address: "))
+            self._add_topolograph_host_to_env()
+            self.do_check_topolograph_availability()
+        # Tags
+        asn_default = self.bgpls_watcher_as if self.bgpls_watcher_as else 0
+        asn_input = input(f"AS number, where IS-IS is configured: [{asn_default}] ")
+        if not asn_input:
+            self.asn = asn_default
+        elif asn_input.isdigit():
+            self.asn = int(asn_input)
+        else:
+            self.asn = asn_default
+        self.organisation_name = str(input("Organisation name: ")).lower()
+        self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
+        if not self.watcher_name:
+            self.watcher_name = "isiswatcher-demo"
+
     def add_watcher_dialog(self):
+        # Connection mode should already be set by add_watcher
+        if self.connection_mode == "bgpls":
+            self.add_watcher_dialog_bgpls()
+            return
+        
+        # GRE mode dialog (existing)
         while not self.gre_tunnel_network_device_ip:
             self.gre_tunnel_network_device_ip = self.do_check_ip(input("[1]Network device IP [x.x.x.x]: "))
         while not self.gre_tunnel_ip_w_mask_network_device:
@@ -463,7 +722,22 @@ class WATCHER_CONFIG:
         return method()
 
     def add_watcher(self):
-        self.do_print_banner()
+        # Ask for connection mode first to show correct banner
+        connection_mode_input = None
+        while connection_mode_input not in ["gre", "bgpls"]:
+            connection_mode_input = input("Connection mode (gre/bgpls): [gre] ").lower().strip()
+            if not connection_mode_input:
+                connection_mode_input = "gre"
+            if connection_mode_input not in ["gre", "bgpls"]:
+                print("Please enter 'gre' or 'bgpls'")
+        self.connection_mode = connection_mode_input
+        
+        # Show appropriate banner
+        if self.connection_mode == "bgpls":
+            self.do_print_banner_bgpls()
+        else:
+            self.do_print_banner()
+        
         self.add_watcher_dialog()
         self.do_add_watcher_prechecks()
         # create folder
