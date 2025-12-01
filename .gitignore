@@ -7,3 +7,4 @@ watcher/logs/
 containerlab/isis01/watcher
 *.log
 *.bak
+.env

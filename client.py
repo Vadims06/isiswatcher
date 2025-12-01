@@ -245,6 +245,13 @@ class WATCHER_CONFIG:
         return ipaddress.ip_interface(ip_address_w_mask).network.prefixlen
 
     def _add_topolograph_host_to_env(self):
+        # Create .env from .env.template if it doesn't exist
+        if not os.path.exists('.env'):
+            if os.path.exists('.env.template'):
+                shutil.copyfile('.env.template', '.env')
+                print("Created .env file from .env.template\n")
+            else:
+                raise FileNotFoundError(".env file not found and .env.template is missing. Please create .env file manually.")
         # open local .env file and replace TOPOLOGRAPH_HOST env
         with open('.env', 'r') as f:
             lines = f.readlines()
