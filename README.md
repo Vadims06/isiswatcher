@@ -531,10 +531,29 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     ```
     sudo docker logs watcher<num>-bgpls-isis-bgplswatcher
     ```
-2. Verify BGP session is established:
-    - Check bgplswatcher logs for BGP session status
-    - Verify router is configured to accept BGP connection from watcher
-    - Check if router is advertising BGP-LS updates
+    IS-IS Watcher posts topology to Topolograph after 30 sec from establing BGP session.   
+
+2. Verify BGP session is established using gobgp CLI:
+    ```bash
+    # List all BGP neighbors with session status
+    docker exec -it watcher<num>-bgpls-isis-bgplswatcher gobgp neighbor
+    
+    # Show detailed status for a specific neighbor
+    docker exec -it watcher<num>-bgpls-isis-bgplswatcher gobgp neighbor <neighbor-ip-address>
+    
+    # Check routes received from a neighbor (BGP-LS address family)
+    docker exec -it watcher<num>-bgpls-isis-bgplswatcher gobgp neighbor <neighbor-ip> adj-in -a ls
+    
+    # Check global RIB (accepted routes)
+    docker exec -it watcher<num>-bgpls-isis-bgplswatcher gobgp global rib -a ls
+    ```
+    The `gobgp neighbor` command shows:
+    - **Peer**: Neighbor IP address
+    - **AS**: Remote AS number
+    - **Up/Down**: Session uptime
+    - **State**: Session state (`Establ` = Established, `Idle`, `Connect`, `Active`, etc.)
+    - **#Received**: Number of routes received
+    - **Accepted**: Number of routes accepted
 3. Check IS-IS watcher container logs:
     ```
     sudo docker logs watcher<num>-bgpls-isis-isis-watcher
