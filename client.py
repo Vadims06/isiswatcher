@@ -274,9 +274,9 @@ class WATCHER_CONFIG:
             _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
             _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
             r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
-            status_name = 'ok' if r_get.ok else 'bad'
+            status_name = 'ok' if r_get.ok or r_get.status_code == 404 else 'bad'
             print(f"Access to {_host}:{_port} is {status_name}")
-            if r_get.status_code != 200:
+            if r_get.status_code != 200 and r_get.status_code != 404:
                 print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
             return r_get.ok
         except Exception as e:
