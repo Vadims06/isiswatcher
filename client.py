@@ -315,6 +315,13 @@ class WATCHER_CONFIG:
         if self.bgpls_passive_mode:
             config_content += "    passive-mode = true\n"
         
+        # Add eBGP multihop config if enabled
+        if self.bgpls_ebgp_multihop:
+            config_content += """  [neighbors.ebgp-multihop.config]
+    enabled = true
+    multihop-ttl = 255
+"""
+        
         with open(config_toml_path, "w") as f:
             f.write(config_content)
 
@@ -386,6 +393,7 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'AREA_NUM': self.isis_area_num})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'PEER_ID': self.gre_tunnel_network_device_ip}) # for BGP-LS backward compatibility
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
@@ -454,16 +462,17 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.BGPLSWATCHER_NODE_NAME] = {
             'kind': 'linux',
             'image': self.BGPLSWATCHER_IMAGE,
-            'network-mode': 'host',
             'binds': [
                 f'bgplswatcher/config.toml:/app/config.toml:ro'
             ],
         }
+        if self.bgpls_passive_mode:
+            watcher_config_yml['topology']['nodes'][self.BGPLSWATCHER_NODE_NAME].setdefault('ports', []).append('179:179')
         # isis-watcher node (BGP mode)
         # Ensure we have a clean node structure
         watcher_node = watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]
         watcher_node['image'] = 'vadims06/isis-watcher:latest'
-        watcher_node['network-mode'] = 'host'
+        watcher_node['network-mode'] = f"container:{self.BGPLSWATCHER_NODE_NAME}"
         # Remove any existing entrypoint/cmd to avoid conflicts
         if 'entrypoint' in watcher_node:
             del watcher_node['entrypoint']
@@ -529,20 +538,20 @@ class WATCHER_CONFIG:
     @staticmethod
     def do_print_banner_bgpls():
         print("""
-+---------------------------+                                        
-|  Watcher Host             |                       +-------------------+
-|  +---------------+        |                       | Network Router    |
-|  | bgplswatcher  |        |                       |                   |
-|  | (GoBGP)       |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
-|  |      [gRPC]   |        |                       |    ^              |
-|  |        |      |        |                       |    |              |
-|  |        v      |        |                       | BGP-LS            |
-|  | isis-watcher  |        |                       |    ^              |
-|  | (Python)      |        |                       |    |              |
-|  |               |        |                       | IS-IS [5]         |
-|  +---------------+        |                       |                   |
-|                           |                       +-------------------+
-+---------------------------+                                        
++-------------------------------+                                        
+|  Watcher Host                 |                       +-------------------+
+|  +-------------------+        |                       | Network Router    |
+|  | bgplswatcher[3][4]|        |                       |                   |
+|  | (GoBGP)           |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
+|  |      [gRPC]       |        |                       |    ^              |
+|  |        |          |        |                       |    |              |
+|  |        v          |        |                       | BGP-LS            |
+|  | isis-watcher      |        |                       |    ^              |
+|  | (Python)          |        |                       |    |              |
+|  |                   |        |                       | IS-IS [5]         |
+|  +-------------------+        |                       |                   |
+|                               |                       +-------------------+
++-------------------------------+                                            
         """)
 
     def add_watcher_dialog_bgpls(self):
@@ -563,6 +572,11 @@ class WATCHER_CONFIG:
                 self.bgpls_watcher_as = int(watcher_as_input)
             else:
                 print("Please provide a valid AS number")
+        # Check if AS numbers don't match (eBGP) and ask about multihop
+        self.bgpls_ebgp_multihop = False
+        if self.bgpls_router_as and self.bgpls_watcher_as and self.bgpls_router_as != self.bgpls_watcher_as:
+            self.bgpls_ebgp_multihop = True
+            print("⚠ eBGP multihop was enabled with TTL 255. Don't forget to configure it on the router side")
         # Watcher router-id
         while not self.bgpls_router_id:
             self.bgpls_router_id = self.do_check_ip(input("[4]Watcher router-id [x.x.x.x]: "))
@@ -580,6 +594,8 @@ class WATCHER_CONFIG:
                     self.bgpls_passive_mode = True
                 elif passive_mode_reply.lower().strip() == 'n':
                     self.bgpls_passive_mode = False
+                    print("⚠ Passive mode disabled - it limits the number of goBGP instances running on the same host to 1")
+                    print("⚠ You can run multiple goBGP instances on the same host by disabling passive mode")
         # Calculate gRPC port based on protocol
         if self.protocol == "isis":
             self.bgpls_grpc_port = 50100 + self.watcher_num

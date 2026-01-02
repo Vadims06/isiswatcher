@@ -212,20 +212,20 @@ The script will create:
 #### BGP-LS Mode Setup
 When you select BGP-LS mode, you'll see:
 ```
-+---------------------------+                                        
-||  Watcher Host             |                       +-------------------+
-||  +------------+           |                       | Network Router    |
-||  | bgplswatcher|          |                       |                   |
-||  | (GoBGP)     |<---------+BGP Session [1][2]---+ | BGP Session [1][2]|
-||  |      [gRPC] |          |                       |    ^              |
-||  |        |    |          |                       |    |              |
-||  |        v    |          |                       | BGP-LS            |
-||  | isis-watcher|          |                       |    ^              |
-||  | (Python)    |          |                       |    |              |
-||  |             |          |                       | IS-IS [5]         |
-||  +------------+           |                       |                   |
-||                           |                       +-------------------+
-+---------------------------+                                        
++-------------------------------+                                        
+|  Watcher Host                 |                       +-------------------+
+|  +-------------------+        |                       | Network Router    |
+|  | bgplswatcher[3][4]|        |                       |                   |
+|  | (GoBGP)           |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
+|  |      [gRPC]       |        |                       |    ^              |
+|  |        |          |        |                       |    |              |
+|  |        v          |        |                       | BGP-LS            |
+|  | isis-watcher      |        |                       |    ^              |
+|  | (Python)          |        |                       |    |              |
+|  |                   |        |                       | IS-IS [5]         |
+|  +-------------------+        |                       |                   |
+|                               |                       +-------------------+
++-------------------------------+                                            
 ```
 You'll be prompted for:
 - **[1] Router IP address (BGP peer)** - IP address of the router running BGP-LS
