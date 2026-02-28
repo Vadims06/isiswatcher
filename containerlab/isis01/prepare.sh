@@ -6,7 +6,7 @@ set -euo pipefail
 LAB_DIR="$(dirname "$0")"
 LOG_DIR="$LAB_DIR/watcher/logs"
 LOG_FILE="$LOG_DIR/watcher1.isis.log"
-BRIDGE_NAME="bgp-bridge"
+BRIDGE_NAME="isis-br-dr"
 OWNER="systemd-network:systemd-journal"
 
 create_log_file() {
@@ -35,6 +35,13 @@ ensure_brctl_installed() {
     fi
 }
 
+ensure_mpls_modules() {
+    echo "[$(date)] Loading MPLS kernel modules (required for IS-IS TE / opaque LSAs)"
+    sudo modprobe mpls_router
+    sudo modprobe mpls_iptunnel
+    sudo modprobe mpls_gso
+}
+
 setup_bridge() {
     if ! ip link show "$BRIDGE_NAME" &>/dev/null; then
         echo "[$(date)] Creating bridge: $BRIDGE_NAME"
@@ -48,6 +55,7 @@ setup_bridge() {
 main() {
     create_log_file
     ensure_brctl_installed
+    ensure_mpls_modules
     setup_bridge
 }
 
