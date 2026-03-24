@@ -53,6 +53,8 @@ services:
       - isis-logstash-index-creator
     networks:
       - internal
+    profiles:
+      - logstash
   
   isis-logstash-index-creator:
     image: vadims06/isis-watcher:latest
@@ -76,6 +78,43 @@ services:
       retries: 50
     networks:
       - internal
+    profiles:
+      - logstash
+
+  isis-fluentbit:
+    image: fluent/fluent-bit:latest
+    container_name: isis-fluentbit
+    command: ["-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    volumes:
+      - type: bind
+        source: ./fluentbit/fluent-bit.yaml
+        target: /fluent-bit/etc/fluent-bit.yaml
+        read_only: true
+      - type: bind
+        source: ./fluentbit/parsers.conf
+        target: /fluent-bit/etc/parsers.conf
+        read_only: true
+      - type: bind
+        source: ./fluentbit/parse_events.lua
+        target: /fluent-bit/etc/parse_events.lua
+        read_only: true
+      - type: bind
+        source: ./watcher/logs
+        target: /home/watcher/watcher/logs
+        read_only: true
+    environment:
+      # Topolograph configuration
+      TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST}
+      TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT}
+      # Webhook configuration
+      WEBHOOK_URL: ${WEBHOOK_URL}
+      WEBHOOK_HOST: ${WEBHOOK_HOST:-192.168.0.33}
+      WEBHOOK_PORT: ${WEBHOOK_PORT:-8081}
+    restart: unless-stopped
+    networks:
+      - internal
+    profiles:
+      - fluentbit  # Use profile to control which service runs
 
 networks:
   internal:

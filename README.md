@@ -116,6 +116,7 @@ Table below shows different options of possible setups, starting from the bare m
 | 1 | Bare minimum. Containerlab                                                                 |            0            |        ✅       |              ❌              |                  ❌                  |                    ❌                   |
 | 2 | 1. Local Topolograph  <br>2. local compose file with ELK **disabled** (commented) |            2            |        ✅       |              ✅              |                  ✅                  |                    ❌                   |
 | 3 | 1. Local Topolograph  <br>2. local compose file with ELK **enabled**              |            3            |        ✅       |              ✅              |                  ✅                  |                    ✅                   |
+| 4 | Same as №2 but **Fluent Bit** instead of Logstash (Zabbix not available)            |            2            |        ✅       |              ✅              |            HTTP / Webhook only       |                    ❌                   |
 
 #### Setup №2. Text logs + timeline of network changes on Topolograph 
 1. Choose a Linux host with Docker installed
@@ -130,7 +131,7 @@ It will:
 * Install and start Topolograph
 * Guide you through IS-IS Watcher setup (GRE or BGP-LS mode)
 * Configure watcher for either local Containerlab or network device deployment
-* Start Logstash for log export
+* Start Logstash or Fluent Bit for log export (see **Compose profiles** under *Start log export*)
 
 Alternatively, you can setup manually:
 
@@ -329,9 +330,18 @@ set policy-options policy-statement isis2bgp term 1 then accept
 The watcher will connect to the router's BGP-LS peer IP address specified during configuration. 
 
 7. Start log export to Topolograph and/or ELK
-```
-docker-compose up -d
-```
+
+**Compose profiles (Logstash vs Fluent Bit):**  
+- **Logstash (ELK + index templates):** services use Compose profile `logstash`. Run:
+  ```bash
+  docker compose --profile logstash up -d
+  ```
+  (equivalent: `docker compose --profile logstash up -d isis-logstash isis-logstash-index-creator`).
+- **Fluent Bit only:** profile `fluentbit`. Run:
+  ```bash
+  docker compose --profile fluentbit up -d isis-fluentbit
+  ```
+  Pipeline definition: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml). Logstash and Fluent Bit send HTTP payloads in different shapes; see **HTTP output: Logstash vs Fluent Bit** under *Versions*.
 
 ## Kibana settings
 1. **Index Templates** 
@@ -572,10 +582,10 @@ You should see tracked changes of your network, i.e.
     ```
     2024-10-08T22:54:54Z,watcher1,1,network,4ffe::192:168:145:4/127,changed,old_cost:44,new_cost:4,0200.1001.0004,,49.0002,12345,internal,0
     ```
-2. Check that logstash container from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` command.  
+2. Check that the log shipper from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` (`isis-logstash` with profile `logstash`, or `isis-fluentbit` with profile `fluentbit`).  
 
-    1. Uncomment `DEBUG_BOOL="True"` in `.env` and start continuous logs `docker logs -f logstash`.
-    2. Copy and paste the log from the first step in watcher's log file  `./watcher/logs/watcher#-gre#-isis.isis.log`. `docker logs -f logstash` should print the output. If not - check logstash container.
+    1. With Logstash: uncomment `DEBUG_BOOL="True"` in `.env` and run `docker logs -f isis-logstash`.
+    2. Copy and paste the log from the first step in watcher's log file `./watcher/logs/watcher#-gre#-isis.isis.log`. With Logstash, `docker logs -f isis-logstash` should show the event; with Fluent Bit only, use `docker logs -f isis-fluentbit` if you need to debug the agent.
   
 3. Check if logs are in Topolograph's DB. Connect to mongoDB and run:
     ```
@@ -596,9 +606,9 @@ You should see tracked changes of your network, i.e.
     { "_id" : ObjectId("67a9ecfe112225e8df6000001"), "graph_time" : "01Jan2023_00h00m00s_7_hosts", "path" : "/home/watcher/watcher/logs/watcher1-gre1-isis.isis.log", "area_num" : "49.0002", "event_name" : "metric", 
     ```
 > [!NOTE]
-> If you see a single event in `docker logs logstash` it means that mongoDB
+> If you see a single event in `docker logs isis-logstash` it means that mongoDB
 > output is blocked, check if you have a connection to MongoDB
-> `docker exec -it logstash curl -v mongodb:27017`
+> `docker exec -it isis-logstash curl -v mongodb:27017`
 
     2. Check that `graph_time` is **not** empty. If so, check that you can login on the Topolograph page [`Login/Local Login`] using credentials defined in `.env` and your local network is added in `API/Authorised source IP ranges`. Usually, `10.0.0.0/8`, `172.16.0.0/12` ,`192.168.0.0/16` is enought.
 
@@ -624,7 +634,15 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
  4. Inspect your new FRR image name using `docker image ls` and replace `router/image` by your own image name in `isiswatcher/watcher/watcher-template/config.yml`
 
  ### Minimum Logstash version
- 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)  
+ 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
+
+> [!NOTE]
+> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
+>
+> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
+> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
+>
+> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml).
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
