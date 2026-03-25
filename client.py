@@ -69,6 +69,8 @@ class WATCHER_CONFIG:
         self.bgpls_passive_mode = False
         self.bgpls_listen_port = 50051
         self.bgpls_grpc_port = 0
+        # Delay before bgplswatcher dials isis-watcher gRPC (matches gobgp config.toml)
+        self.wait_sec_before_send_topology = 5
 
     def gen_next_free_number():
         """ Each Watcher installation has own sequence number starting from 1 """
@@ -305,6 +307,7 @@ class WATCHER_CONFIG:
   as = {self.bgpls_watcher_as}
   router-id = "{self.bgpls_router_id}"
   topolograph-watcher-endpoint = "{topolograph_endpoint}"
+  wait_sec_before_send_topology = {self.wait_sec_before_send_topology}
 
 [[neighbors]]
   [neighbors.config]
@@ -453,6 +456,7 @@ class WATCHER_CONFIG:
             'bgpls_router_id': self.bgpls_router_id,
             'bgpls_passive_mode': self.bgpls_passive_mode,
             'bgpls_grpc_port': self.bgpls_grpc_port,
+            'wait_sec_before_send_topology': self.wait_sec_before_send_topology,
             'area_num': self.isis_area_num,
             'asn': self.asn,
             'organisation_name': self.organisation_name,
