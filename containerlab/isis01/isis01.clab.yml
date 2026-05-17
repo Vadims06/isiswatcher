@@ -1,4 +1,4 @@
-name: frr01
+name: isis01
 
 topology:
   defaults:
