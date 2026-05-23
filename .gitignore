@@ -8,3 +8,4 @@ containerlab/isis01/watcher
 *.log
 *.bak
 .env
+watcher/watcher-template/watcher.env
