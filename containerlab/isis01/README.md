@@ -44,7 +44,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 
 4. Check that Watcher is ready (usually it requires 10-15sec to be ready). Proceed to the next step once Watcher is ready.  
     ```
-    sudo docker logs clab-frr01-isis-watcher
+    sudo docker logs clab-isis01-isis-watcher
     ```
     Expected output:
     ```
@@ -64,7 +64,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 
 6. Change IS-IS settings on lab' routers. Connect to a router in another terminal
     ```
-    sudo docker exec -it clab-frr01-router6 vtysh
+    sudo docker exec -it clab-isis01-router6 vtysh
     ```
     Change metric on the interface
     ```

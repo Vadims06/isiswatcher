@@ -23,8 +23,6 @@ if __name__ == '__main__':
         "event_name": {"type": "keyword"},
         "event_object": {"type": "keyword"},
         "event_status": {"type": "keyword"},
-        "metric_type": {"type": "keyword"},
-        "object_status": {"type": "keyword"},
         "admin_groups": {"type": "short"},
         "max_link_bw": {"type": "integer"},
         "max_rsrv_link_bw": {"type": "integer"},

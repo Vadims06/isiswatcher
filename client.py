@@ -59,6 +59,7 @@ class WATCHER_CONFIG:
         self.asn = 0
         self.organisation_name = ""
         self.watcher_name = ""
+        self.topolograph_api_token = ""
         self.enable_xdp = False
         self.enable_topolograph = False
         # BGP-LS specific attributes
@@ -176,6 +177,21 @@ class WATCHER_CONFIG:
     @property
     def watcher_folder_path(self):
         return os.path.join(self.watcher_root_folder_path, self.watcher_folder_name)
+
+    def _existing_topolograph_api_token_from_template_env(self) -> str:
+        """Return TOPOLOGRAPH_API_TOKEN from watcher-template/watcher.env when non-empty (skip re-prompt)."""
+        path = os.path.join(self.watcher_template_path, "watcher.env")
+        if not os.path.isfile(path):
+            return ""
+        prefix = "TOPOLOGRAPH_API_TOKEN="
+        with open(path, encoding="utf-8") as fp:
+            for raw in fp:
+                line = raw.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if line.startswith(prefix):
+                    return line[len(prefix):].strip().strip('"').strip("'")
+        return ""
 
     @property
     def watcher_template_path(self):
@@ -397,6 +413,8 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'PEER_ID': self.gre_tunnel_network_device_ip}) # for BGP-LS backward compatibility
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_IP': self.host_interface_device_ip})
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token})
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
@@ -494,6 +512,8 @@ class WATCHER_CONFIG:
             'ASN': self.asn,
             'WATCHER_NAME': self.watcher_name,
             'AREA_NUM': self.isis_area_num,
+            'WATCHER_IP': '',
+            'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token,
         }
         # Remove stages if they reference deleted nodes
         if 'stages' in watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]:
@@ -637,6 +657,12 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
+        existing_token = self._existing_topolograph_api_token_from_template_env()
+        if existing_token:
+            self.topolograph_api_token = existing_token
+        else:
+            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
+            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
 
     def add_watcher_dialog(self):
         # Connection mode should already be set by add_watcher
@@ -705,6 +731,12 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
+        existing_token = self._existing_topolograph_api_token_from_template_env()
+        if existing_token:
+            self.topolograph_api_token = existing_token
+        else:
+            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
+            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
         self.enable_xdp = None
         while self.enable_xdp is None:
             enable_xdp_reply = input("Enable XDP? [y/N] ")
