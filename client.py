@@ -413,6 +413,7 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_INTERFACE': "veth1"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'PEER_ID': self.gre_tunnel_network_device_ip}) # for BGP-LS backward compatibility
+        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_IP': self.host_interface_device_ip})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token})
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE

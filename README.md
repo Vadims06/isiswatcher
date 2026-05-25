@@ -82,6 +82,56 @@ Events are grouped by IS-IS level (L1/L2).
 ![](./docs/topolograph_dashboard_with_l1_l2_events.png)  
 Here is a demo of checking events on Monitoring dashboard `./docs/isisdemo_with_topolograph_au.mp4`   
 
+## Watcher Heartbeats
+
+isiswatcher can periodically POST a heartbeat to Topolograph so the UI displays all registered IS-IS watchers with their liveness status (`up` / `stale` / `down`), independent of whether the network is producing topology events.
+
+### Prerequisites
+
+- Topolograph v3.x or later
+- One shared Topolograph user account per organisation (all watchers must use the same API token so they appear together in the UI)
+
+### Setup
+
+**Step 1 — Generate an API token in Topolograph**
+
+Log in to Topolograph → **Settings → API Tokens → Create token**. Copy the `sk-...` value.
+
+**Step 2 — Provision the watcher**
+
+When running `client.py --action add_watcher`, you will be prompted:
+
+```
+Topolograph API token (sk-..., leave empty to skip heartbeats):
+```
+
+Paste the `sk-...` token. It will be written to the watcher container's environment automatically.
+
+To add a token to an existing watcher, edit the watcher's `config.yml` and add `TOPOLOGRAPH_API_TOKEN: sk-...` under the watcher node's `env` block, then redeploy.
+
+**Step 3 — Verify**
+
+After the watcher starts, check Topolograph UI → **Watchers** tab. The watcher should appear with status `up` within one `HEARTBEAT_INTERVAL` (default: 60 seconds).
+
+### Status values
+
+| Status | Meaning |
+|--------|---------|
+| `up` | Last heartbeat received within `HEARTBEAT_INTERVAL × 3` seconds |
+| `stale` | Last heartbeat older than `× 3` but within `× 6` seconds |
+| `down` | No heartbeat for more than `× 6` seconds, or watcher never connected |
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TOPOLOGRAPH_API_TOKEN` | _(empty)_ | Bearer token from Topolograph UI. If empty, heartbeats are disabled. |
+| `HEARTBEAT_INTERVAL` | `60` | Seconds between heartbeats. |
+
+### Multi-watcher organisations
+
+All watchers belonging to the same organisation should use the **same API token** (generated under one shared service account). This ensures all watchers appear together under `GET /api/watcher/status` in the Topolograph UI. IS-IS and OSPF watchers sharing the same Topolograph account will all appear in the same Watchers view.
+
 ## IS-IS topology change notification/alarming via Zabbix. Examples
 Zabbix's dashboard with active alarms. It's universal method to track OSPF and IS-IS events. *The screenshot is taken from OSPF watcher.*  
 ![](./docs/zabbix-ui/zabbix_dashboard_with_all_alarms.png)
@@ -564,6 +614,8 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     - **State**: Session state (`Establ` = Established, `Idle`, `Connect`, `Active`, etc.)
     - **#Received**: Number of routes received
     - **Accepted**: Number of routes accepted
+
+    > Run `sudo sysctl -w net.ipv4.ip_unprivileged_port_start=0` on the Linux host to allow GoBGP on port 179 if needed to start goBGP in passive mode.
 3. Check IS-IS watcher container logs:
     ```
     sudo docker logs watcher<num>-bgpls-isis-isis-watcher

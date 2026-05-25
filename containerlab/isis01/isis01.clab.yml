@@ -10,7 +10,7 @@ topology:
       kind: bridge
     isis-watcher:
       kind: linux
-      image: vadims06/isis-watcher:3.1.1_dev
+      image: vadims06/isis-watcher:latest
       startup-delay: 30
       network-mode: container:router1
       stages:
@@ -36,9 +36,6 @@ topology:
         WATCHER_NAME: lab-isis01
         AREA_NUM: '49.0001'
         WATCHER_INTERFACE: "eth1"
-        TOPOLOGRAPH_API_TOKEN: ${TOPOLOGRAPH_API_TOKEN:-}
-        TOPOLOGY_WEBHOOK_URL: ${TOPOLOGY_WEBHOOK_URL:-}
-        HEARTBEAT_INTERVAL: ${HEARTBEAT_INTERVAL:-60}
       binds:
         - watcher/logs/watcher1.isis.log:/home/watcher/watcher/logs/watcher.log
     router1:
