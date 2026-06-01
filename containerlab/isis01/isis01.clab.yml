@@ -1,5 +1,10 @@
 name: isis01
 
+mgmt:
+  network: isis01-mgmt
+  ipv4-subnet: 172.21.21.0/24
+  ipv6-subnet: 3fff:172:21:21::/64
+
 topology:
   defaults:
     env-files:
