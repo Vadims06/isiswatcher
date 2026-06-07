@@ -16,7 +16,9 @@ topology:
     isis-watcher:
       kind: linux
       image: vadims06/isis-watcher:latest
-      startup-delay: 30
+      # 60s so router6 (transit node on isis-br-dr) converges into the IS-IS LSDB
+      # before the watcher snapshots its baseline; 30s was sometimes too short.
+      startup-delay: 60
       network-mode: container:router1
       stages:
         create:

@@ -172,7 +172,7 @@ isis-watcher,1,temetric,0200.1001.0002,changed,0_17_19_20_21_22_26_29_30,1000000
 
 
 > **Note**
-log file should have `systemd-network:systemd-journal` ownership
+`prepare.sh` creates `watcher/logs/` and the log file owned by the user that runs the lab.
 
 ### Links
 * [IS-IS Watcher](https://github.com/Vadims06/isiswatcher) - IS-IS topology tracker    
