@@ -59,6 +59,25 @@ function parse_events(tag, timestamp, record)
             record["metadata"]["elasticsearch_index"] = "isis-watcher-temetric-changes"
             record["metadata"]["webhook_item_value"] = "IS-IS L" .. record["level_number"] .. " te link attributes changed"
         end
+    elseif string.find(message, ",node,") then
+        -- <ts>,<name>,<level>,node,<id>,changed,attr:<name>,old:<v>,new:<v>,<detected_by>,<gt>,<area>,<asn>[,<sesid>,<srcid>]
+        if #parts >= 13 then
+            record["attribute"] = string.match(parts[7], "attr:(.+)") or parts[7]
+            record["old_value"] = string.match(parts[8], "old:(.+)") or parts[8]
+            record["new_value"] = string.match(parts[9], "new:(.+)") or parts[9]
+            record["event_detected_by"] = parts[10]
+            record["graph_time"] = parts[11]
+            record["area_num"] = parts[12]
+            record["asn"] = parts[13]
+            if #parts >= 15 then
+                record["sesid"] = parts[14]
+                record["srcid"] = parts[15]
+            end
+            record["object_status"] = "changed"
+            record["metadata"] = record["metadata"] or {}
+            record["metadata"]["elasticsearch_index"] = "isis-watcher-node-changes"
+            record["metadata"]["webhook_item_value"] = "IS-IS L" .. record["level_number"] .. " node " .. record["event_object"] .. " " .. record["attribute"] .. " changed: " .. record["old_value"] .. " -> " .. record["new_value"]
+        end
     elseif string.find(message, "metric") then
         if #parts >= 14 then
             local old_cost_part = parts[7]
