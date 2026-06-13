@@ -149,6 +149,10 @@ If a subnet was removed from IS-IS/OSPF node (the node withdrew it from the anno
 HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of IS-IS/OSPF topology changes: *The screenshot is taken from OSPF watcher.*   
 ![](./docs/slack/slack_notification.PNG)
 
+## Push IS-IS topology changes to Loki
+
+You can configure [Loki](https://grafana.com/oss/loki/) to receive topology changes. Edit `.env` and set `EXPORT_TO_LOKI_BOOL` and `LOKI_URL`.
+
 ## Quick lab
 #### Containerlab
 Containerlab's topology is placed under **containerlab** folder. Local `README` includes instructions how to run it. IS-IS topology changes are printed by Watcher in a text file only.
