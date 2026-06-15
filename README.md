@@ -11,6 +11,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
   * Maximum Reservable Link Bandwidth
   * Unreserved Bandwidth
   * Traffic Engineering Default Metric
+* IS-IS node flags: overload, attached, and ABR/ASBR role changes
 
 ## Architecture
 
