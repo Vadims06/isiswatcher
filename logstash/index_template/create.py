@@ -35,6 +35,7 @@ if __name__ == '__main__':
         "unreserved_bandwidth_6": {"type": "integer"},
         "unreserved_bandwidth_7": {"type": "integer"},
         "temetric": {"type": "integer"},
+        "srlg": {"type": "integer"},
         "event_detected_by": {"type": "keyword"},
         "graph_time": {"type": "keyword"},
         "area_num": {"type": "keyword"},

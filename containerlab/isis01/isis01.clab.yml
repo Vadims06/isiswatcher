@@ -59,7 +59,7 @@ topology:
         - router2/frr.conf:/etc/frr/frr.conf
     router3:
       kind: linux
-      image: frrouting/frr:v8.4.1
+      image: vadims06/frr:v10.8_srlg
       binds:
         - router3/daemons:/etc/frr/daemons
         - router3/frr.conf:/etc/frr/frr.conf

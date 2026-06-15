@@ -37,6 +37,14 @@ function parse_events(tag, timestamp, record)
                 record["sesid"] = parts[18]
                 record["srcid"] = parts[19]
             end
+            -- v3.2.0+: trailing srlg field (underscore-joined Shared Risk Link Group values)
+            if #parts >= 20 and parts[20] ~= "" then
+                local srlg = {}
+                for value in string.gmatch(parts[20], "([^_]+)") do
+                    table.insert(srlg, value)
+                end
+                record["srlg"] = srlg
+            end
 
             local admin_groups = {}
             for group in string.gmatch(parts[7], "([^_]+)") do
