@@ -20,7 +20,7 @@ services:
         read_only: true
       # for containerlab integration
       # - type: bind
-      #   source: /home/ubuntu/isiswatcher/watcher/logs/watcher.log
+      #   source: ./containerlab/isis01/watcher/logs/watcher.log
       #   target: /home/watcher/watcher/logs/watcher.log
       #   read_only: true
     environment:
