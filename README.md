@@ -1,6 +1,19 @@
 # IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through either a specially established IS-IS adjacency (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start.
 
+## Quick start
+1. On a Docker host, install Topolograph and the watcher compose files:
+
+    ```bash
+    curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
+    chmod +x install.sh
+    sudo ./install.sh
+    ```
+2. `cp .env.template .env`, then set `TOPOLOGRAPH_HOST` and `TOPOLOGRAPH_PORT` to the host IP (not `localhost`).
+3. Pick a deployment size in [How to connect IS-IS watcher to real network](#how-to-connect-is-is-watcher-to-real-network).
+
+No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
+
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
 * IS-IS link cost changes
