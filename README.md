@@ -166,6 +166,20 @@ HTTP POST messages can be easily accepted by messengers, which allows to get ins
 
 You can configure [Loki](https://grafana.com/oss/loki/) to receive topology changes. Edit `.env` and set `EXPORT_TO_LOKI_BOOL` and `LOKI_URL`.
 
+Both shippers declare the same stream labels, so one set of Grafana queries
+works whichever of them you run:
+
+| Label | Values |
+|---|---|
+| `job` | `topolograph-isis` |
+| `event_name` | `network`, `host`, `metric`, `temetric`, `node` |
+| `event_status` | `up`, `down`, `changed` |
+| `area_num` | `49.0001` (IS-IS area) |
+| `asn` | autonomous system number, e.g. `65001` |
+| `watcher_name` | name of the watcher that reported the event |
+
+Example query: `{job="topolograph-isis", event_status="down"}`
+
 ## Quick lab
 #### Containerlab
 Containerlab's topology is placed under **containerlab** folder. Local `README` includes instructions how to run it. IS-IS topology changes are printed by Watcher in a text file only.
