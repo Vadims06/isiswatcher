@@ -2,15 +2,20 @@
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through either a specially established IS-IS adjacency (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start.
 
 ## Quick start
-1. On a Docker host, install Topolograph and the watcher compose files:
+1. In Topolograph open **Watchers → Add watcher → IS-IS Watcher**, pick the connection mode, fill in the form and copy the two command blocks it shows. Topolograph registers the watcher and puts its token into the command.
+2. Run them on a Docker host with containerlab:
 
     ```bash
-    curl -O https://raw.githubusercontent.com/Vadims06/topolograph-docker/master/install.sh
-    chmod +x install.sh
-    sudo ./install.sh
+    # 1. Download
+    [ -d /opt/topolograph/isiswatcher ] || sudo git clone --branch <version> https://github.com/Vadims06/isiswatcher /opt/topolograph/isiswatcher
+    cd /opt/topolograph/isiswatcher
+    # 2. Configure and run
+    sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
-2. `cp .env.template .env`, then set `TOPOLOGRAPH_HOST` and `TOPOLOGRAPH_PORT` to the host IP (not `localhost`).
-3. Pick a deployment size in [How to connect IS-IS watcher to real network](#how-to-connect-is-is-watcher-to-real-network).
+    `configure.sh` checks Docker, Docker Compose, containerlab and curl, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-isiswatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
+3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph.
+
+Without the Watchers page (Topolograph before v2.74), follow [How to connect IS-IS watcher to real network](#how-to-connect-is-is-watcher-to-real-network).
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
 

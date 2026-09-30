@@ -55,7 +55,7 @@ services:
       - logstash
   
   isis-logstash-index-creator:
-    image: vadims06/isis-watcher:latest
+    image: ${REGISTRY_PREFIX:-}vadims06/isis-watcher:${WATCHER_VERSION}
     container_name: isis-logstash-index-creator
     volumes:
       - type: bind
@@ -80,13 +80,22 @@ services:
       - logstash
 
   isis-fluentbit:
-    image: fluent/fluent-bit:latest
+    image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
     container_name: isis-fluentbit
-    command: ["-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    # onboarding.yaml when installed from Topolograph's Watchers page
+    command: ["-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
     volumes:
       - type: bind
         source: ./fluentbit/fluent-bit.yaml
         target: /fluent-bit/etc/fluent-bit.yaml
+        read_only: true
+      - type: bind
+        source: ./fluentbit/onboarding.yaml
+        target: /fluent-bit/etc/onboarding.yaml
+        read_only: true
+      - type: bind
+        source: ./fluentbit/watchers
+        target: /fluent-bit/etc/watchers
         read_only: true
       - type: bind
         source: ./fluentbit/parsers.conf
@@ -111,8 +120,6 @@ services:
       WEBHOOK_HOST: ${WEBHOOK_HOST:-192.168.0.33}
       WEBHOOK_PORT: ${WEBHOOK_PORT:-8081}
     restart: unless-stopped
-    networks:
-      - internal
     profiles:
       - fluentbit  # Use profile to control which service runs
 

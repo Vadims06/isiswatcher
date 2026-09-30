@@ -9,3 +9,4 @@ containerlab/isis01/watcher
 *.bak
 .env
 watcher/watcher-template/watcher.env
+fluentbit/watchers/*.yaml
