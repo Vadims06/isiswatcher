@@ -8,8 +8,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
     ```bash
     # 1. Download
     [ -d /opt/topolograph/isiswatcher ] || sudo git clone https://github.com/Vadims06/isiswatcher /opt/topolograph/isiswatcher
-    cd /opt/topolograph/isiswatcher
-    sudo git fetch --tags origin <version> && sudo git checkout --detach FETCH_HEAD
+    cd /opt/topolograph/isiswatcher && sudo git fetch --tags origin <version> && sudo git checkout --detach FETCH_HEAD
     # 2. Configure and run
     sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```

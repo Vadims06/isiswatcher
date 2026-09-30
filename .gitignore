@@ -4,6 +4,9 @@ clab-frr01
 isiswatcher/containerlab/frr01/clab-frr01
 __pycache__/
 watcher/logs/
+# generated watchers and their answers hold the watcher token
+watcher/*
+!watcher/watcher-template/
 containerlab/isis01/watcher
 *.log
 *.bak
