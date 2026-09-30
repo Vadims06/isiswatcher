@@ -22,7 +22,7 @@
       "router_examples": [
         {
           "vendor": "Cisco",
-          "config": "interface Tunnel{gre_tunnel_number}\n ip address <GRE tunnel ip address on the device>\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
+          "config": "interface Tunnel{gre_tunnel_number}\n ip address {gre_tunnel_ip_w_mask_network_device}\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
         }
       ]
     },
