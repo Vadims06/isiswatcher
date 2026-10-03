@@ -2,6 +2,7 @@ import argparse
 import copy
 import enum
 import ipaddress
+import json
 import os
 import re
 import shutil
@@ -30,6 +31,16 @@ class ACTIONS(enum.Enum):
     DISABLE_XDP = "disable_xdp"
 
 
+def open_private(path):
+    """Files holding a watcher token stay root-only from their first byte."""
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    return open(fd, "w")
+
+
+LINUX_INTERFACE_NAME_MAX_LEN = 15
+
+
 class WATCHER_CONFIG:
     P2P_VETH_SUPERNET_W_MASK = "169.254.0.0/16"
     WATCHER_ROOT_FOLDER = "watcher"
@@ -44,6 +55,14 @@ class WATCHER_CONFIG:
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
     BGPLSWATCHER_NODE_NAME = "bgplswatcher"
     BGPLSWATCHER_IMAGE = "vadims06/bgplswatcher:latest"
+    # Images a watcher installed from Topolograph pins; the watcher image follows the VERSION file.
+    PINNED_IMAGES = {
+        WATCHER_NODE_NAME: "vadims06/isis-watcher:{version}",
+        BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
+        LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
+        ROUTER_NODE_NAME: "vadims06/frr:v8.5.4_isis_over_gre",
+    }
+    FLUENT_BIT_WATCHERS_FOLDER = os.path.join("fluentbit", "watchers")
 
     def __init__(self, watcher_num, protocol="isis"):
         self.watcher_num = watcher_num
@@ -58,6 +77,7 @@ class WATCHER_CONFIG:
         self.protocol = protocol
         self.asn = 0
         self.organisation_name = ""
+        self._host_veth = ""
         self.watcher_name = ""
         self.topolograph_api_token = ""
         self.enable_xdp = False
@@ -112,6 +132,11 @@ class WATCHER_CONFIG:
                     self.connection_mode = "bgpls"
                 for label, value in self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).items():
                     setattr(self, label, value)
+                # The link holds the deployed name; older configs have no host_veth label
+                for link in self.watcher_config_file_yml.get('topology', {}).get('links') or []:
+                    for endpoint in link.get('endpoints', []):
+                        if endpoint.startswith('host:'):
+                            self.host_veth = endpoint.split(':', 1)[1]
                 break
         else:
             raise ValueError(f"Watcher{watcher_num} was not found")
@@ -148,12 +173,9 @@ class WATCHER_CONFIG:
 
     @property
     def host_veth(self):
-        """ Add organisation name at name of interface to allow different interfaces with the same GRE num """
-        linux_ip_link_peer_max_len = 15
-        vhost_inf_name = f"vhost{self.gre_tunnel_number}"
-        organisation_name_short = self.organisation_name[:linux_ip_link_peer_max_len - (len(vhost_inf_name)+1)] # 1 for dash
-        self._host_veth = f"{organisation_name_short}-{vhost_inf_name}" if organisation_name_short else vhost_inf_name
-        return self._host_veth
+        """Unique on the host: the OSPF and IS-IS checkouts number their watchers independently."""
+        # An imported watcher keeps the name it was deployed with
+        return self._host_veth or f"{self.protocol}{self.watcher_num}-gre{self.gre_tunnel_number}"
 
     @host_veth.setter
     def host_veth(self, value_from_yaml_import):
@@ -313,6 +335,17 @@ class WATCHER_CONFIG:
     def is_network_the_same(ip_address_w_mask_1, ip_address_w_mask_2):
         return ipaddress.ip_interface(ip_address_w_mask_1).network == ipaddress.ip_interface(ip_address_w_mask_2).network
 
+    def get_gre_endpoints_error(self) -> str:
+        """Why the two tunnel ends cannot form an adjacency; empty when they can."""
+        if not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
+            return "Tunnel's network doesn't match"
+        if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
+            return "Tunnel' IP addresses must be different on endpoints"
+        # The dialog asks the tunnel number after the addresses
+        if self.gre_tunnel_number and len(self.host_veth) > LINUX_INTERFACE_NAME_MAX_LEN:
+            return f"Interface name {self.host_veth} is longer than {LINUX_INTERFACE_NAME_MAX_LEN} characters, use a shorter GRE tunnel number"
+        return ""
+
     def generate_bgplswatcher_config(self):
         """Generate config.toml for bgplswatcher (GoBGP)"""
         config_toml_path = os.path.join(self.bgplswatcher_folder_path, "config.toml")
@@ -356,10 +389,12 @@ class WATCHER_CONFIG:
         if not os.path.exists(watcher_logs_folder_path):
             os.mkdir(watcher_logs_folder_path)
         #os.mkdir(isis_watcher_folder_path)
-        shutil.copyfile(
-            src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
-            dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
-        )
+        # A rebuilt watcher keeps its event history
+        if not os.path.exists(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name)):
+            shutil.copyfile(
+                src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
+                dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
+            )
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # router folder inside watcher
         os.mkdir(self.router_folder_path)
@@ -441,10 +476,12 @@ class WATCHER_CONFIG:
         if not os.path.exists(watcher_logs_folder_path):
             os.mkdir(watcher_logs_folder_path)
         # Create log file
-        shutil.copyfile(
-            src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
-            dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
-        )
+        # A rebuilt watcher keeps its event history
+        if not os.path.exists(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name)):
+            shutil.copyfile(
+                src=os.path.join(self.isis_watcher_template_path, "watcher.log"),
+                dst=os.path.join(watcher_logs_folder_path, self.watcher_log_file_name),
+            )
         os.chmod(os.path.join(watcher_logs_folder_path, self.watcher_log_file_name), 0o755)
         # bgplswatcher folder
         os.mkdir(self.bgplswatcher_folder_path)
@@ -529,7 +566,7 @@ class WATCHER_CONFIG:
         self._do_save_watcher_config_file(watcher_config_yml)
 
     def _do_save_watcher_config_file(self, _config):
-        with open(self.watcher_config_file_path, "w") as f:
+        with open_private(self.watcher_config_file_path) as f:
             s = StringIO()
             ruamel_yaml_default_mode.dump(_config, s)
             f.write(s.getvalue())
@@ -551,7 +588,7 @@ class WATCHER_CONFIG:
 |  | netns FRR  |           |                       |                   |
 |  |            Tunnel [4]  |                       | Tunnel [4]        |
 |  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-vhost1    |       +-----+         | IS-IS area num [5]|
+|  |  eth1------+-isis1-gre1|       +-----+         | IS-IS area num [5]|
 |  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
 |  |            |           |       +-----+         |                   |
 |  +------------+           |                       |                   |
@@ -692,16 +729,16 @@ class WATCHER_CONFIG:
             elif self._get_digit_net_mask(self.gre_tunnel_ip_w_mask_watcher) == 32:
                 print("Please provide non /32 subnet for tunnel network")
                 self.gre_tunnel_ip_w_mask_watcher = ""
-            elif not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
-                print("Tunnel's network doesn't match")
-                self.gre_tunnel_ip_w_mask_watcher = ""
-            elif self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
-                print("Tunnel' IP addresses must be different on endpoints")
+            elif self.get_gre_endpoints_error():
+                print(self.get_gre_endpoints_error())
                 self.gre_tunnel_ip_w_mask_watcher = ""
         while not self.gre_tunnel_number:
             self.gre_tunnel_number = input("[4]GRE Tunnel number: ")
             if not self.gre_tunnel_number.isdigit():
                 print("Please provide any positive number")
+                self.gre_tunnel_number = ""
+            elif self.get_gre_endpoints_error():
+                print(self.get_gre_endpoints_error())
                 self.gre_tunnel_number = ""
         # ISIS settings
         while not self.isis_area_num:
@@ -767,6 +804,114 @@ class WATCHER_CONFIG:
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
         ]
 
+    @staticmethod
+    def get_folder_by_watcher_id(watcher_id):
+        """The folder a previous configure.sh run created for this Topolograph watcher, if any."""
+        root = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
+        for folder_name in WATCHER_CONFIG.get_existed_watchers():
+            config_path = os.path.join(root, folder_name, WATCHER_CONFIG.WATCHER_CONFIG_FILE)
+            if not os.path.exists(config_path):
+                continue
+            with open(config_path) as f:
+                labels = (ruamel_yaml_default_mode.load(f) or {}).get('topology', {}).get('defaults', {}).get('labels', {})
+            if labels.get('watcher_id') == watcher_id:
+                return folder_name
+        return ""
+
+    def add_watcher_from_answers(self, answers_path):
+        """Build the watcher from the configuration Topolograph returns for a watcher token, without questions."""
+        with open(answers_path) as f:
+            config = json.load(f)
+        existing_folder = self.get_folder_by_watcher_id(config["watcher_id"])
+        backup_path = ""
+        if existing_folder:
+            self.watcher_num = int(re.match(r"watcher(\d+)-", existing_folder).group(1))
+            # Kept until the rebuild succeeds, so a failed one leaves the working watcher in place
+            backup_path = os.path.join(self.watcher_root_folder_path, f".{existing_folder}.previous")
+            shutil.rmtree(backup_path, ignore_errors=True)
+            os.rename(os.path.join(self.watcher_root_folder_path, existing_folder), backup_path)
+        try:
+            self._build_from_answers(config)
+        # BaseException too: Ctrl-C must not leave the watcher only in its backup
+        except BaseException:
+            shutil.rmtree(self.watcher_folder_path, ignore_errors=True)
+            if backup_path:
+                os.rename(backup_path, os.path.join(self.watcher_root_folder_path, existing_folder))
+            raise
+        if backup_path:
+            shutil.rmtree(backup_path)
+
+    def _build_from_answers(self, config):
+        self.connection_mode = config["connection_mode"]
+        for key, value in config["answers"].items():
+            if not hasattr(self, key):
+                continue
+            default = getattr(self, key)
+            if isinstance(default, bool):
+                value = str(value).lower() == "true"
+            elif isinstance(default, int):
+                value = int(value)
+            setattr(self, key, value)
+        self.isis_area_num = self.do_check_area_num(str(self.isis_area_num))
+        if self.connection_mode == "gre" and self.get_gre_endpoints_error():
+            raise ValueError(self.get_gre_endpoints_error())
+        server = config["server"]
+        self.watcher_name = server["watcher_name"]
+        self.topolograph_api_token = server["watcher_token"]
+        self.enable_topolograph = True
+        if self.connection_mode == "bgpls":
+            self.bgpls_grpc_port = 50100 + self.watcher_num
+            self.bgpls_ebgp_multihop = self.bgpls_router_as != self.bgpls_watcher_as
+        self.create_folder_with_settings()
+        self._pin_answers_config(config["watcher_id"], server)
+        self._write_fluent_bit_output(server)
+        print(f"Watcher {self.watcher_name} is configured in {self.watcher_folder_name}")
+
+    def _pin_answers_config(self, watcher_id, server):
+        """Pin images to this checkout's version and point the watcher at Topolograph with its own token."""
+        with open("VERSION") as f:
+            version = f.read().strip()
+        registry_prefix = os.getenv("REGISTRY_PREFIX", "")
+        config_yml = self.watcher_config_file_yml
+        config_yml['topology']['defaults']['labels']['watcher_id'] = watcher_id
+        for node_name, node in config_yml['topology']['nodes'].items():
+            if node_name in self.PINNED_IMAGES:
+                node['image'] = registry_prefix + self.PINNED_IMAGES[node_name].format(version=version)
+        config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].setdefault('env', {}).update({
+            'TOPOLOGRAPH_HOST': server["topolograph_host"],
+            'TOPOLOGRAPH_PORT': server["topolograph_port"],
+            'TOPOLOGRAPH_API_TOKEN': server["watcher_token"],
+            # Empty login makes the watcher sign in with its token
+            'TOPOLOGRAPH_WEB_API_USERNAME_EMAIL': "",
+            'TOPOLOGRAPH_WEB_API_PASSWORD': "",
+        })
+        self._do_save_watcher_config_file(config_yml)
+
+    def _write_fluent_bit_output(self, server):
+        """One Fluent Bit input and output per watcher, so each sends its events with its own token."""
+        os.makedirs(self.FLUENT_BIT_WATCHERS_FOLDER, exist_ok=True)
+        tag = f"onboarding.{self.watcher_folder_name}"
+        fluent_bit_config = {'pipeline': {
+            'inputs': [{
+                'name': 'tail', 'tag': tag,
+                'path': f"/home/watcher/watcher/logs/{self.watcher_log_file_name}",
+                # Offsets survive a restart; start.sh starts Fluent Bit before the watchers write
+                'db': f"/fluent-bit/state/{self.watcher_folder_name}.db",
+                'read_from_head': False, 'refresh_interval': 1, 'rotate_wait': 1,
+                'mem_buf_limit': '50MB', 'skip_long_lines': 'on',
+            }],
+            'outputs': [{
+                'name': 'http', 'match': tag,
+                'host': server["topolograph_host"], 'port': int(server["topolograph_port"]),
+                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 'no_limits',
+                'tls': server["topolograph_tls"],
+                'header': f"Authorization Bearer {server['watcher_token']}",
+            }],
+        }}
+        path = os.path.join(self.FLUENT_BIT_WATCHERS_FOLDER, f"{self.watcher_folder_name}.yaml")
+        with open_private(path) as f:
+            ruamel_yaml_default_mode.dump(fluent_bit_config, f)
+
     @classmethod
     def parse_command_args(cls, args):
         allowed_actions = [actions.value for actions in ACTIONS]
@@ -774,6 +919,11 @@ class WATCHER_CONFIG:
             raise ValueError(f"Not allowed action. Supported actions: {', '.join(allowed_actions)}")
         watcher_num = args.watcher_num if args.watcher_num else len( cls.get_existed_watchers() ) + 1
         watcher_obj = cls(watcher_num)
+        if args.answers:
+            if args.action != ACTIONS.ADD_WATCHER.value:
+                raise ValueError("--answers works with --action add_watcher only")
+            # Numbers of deleted watchers are reused, so a new folder never collides with a kept one.
+            return cls(cls.gen_next_free_number()).add_watcher_from_answers(args.answers)
         watcher_obj.run_command(args.action)
 
     def run_command(self, action):
@@ -864,6 +1014,10 @@ if __name__ == '__main__':
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, type=int, help="Number of watcher"
+    )
+    parser.add_argument(
+        "--answers", required=False, default="",
+        help="Configuration JSON from Topolograph (GET /api/watcher/config); add_watcher runs without questions"
     )
     
     args = parser.parse_args()
