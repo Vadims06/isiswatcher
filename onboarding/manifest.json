@@ -22,7 +22,7 @@
       "router_examples": [
         {
           "vendor": "Cisco",
-          "config": "interface Tunnel{gre_tunnel_number}\n ip address <GRE tunnel ip address on the device>\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
+          "config": "interface Tunnel{gre_tunnel_number}\n ip address {gre_tunnel_ip_w_mask_network_device}\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
         }
       ]
     },
@@ -89,7 +89,7 @@
       "id": "gre_tunnel_network_device_ip",
       "label": "Network device IP, tunnel source on the device",
       "diagram_label": "1",
-      "type": "ip",
+      "type": "ipv4",
       "source": "user",
       "modes": [
         "gre"
@@ -122,7 +122,7 @@
       "type": "integer",
       "source": "user",
       "min": 1,
-      "max": 65535,
+      "max": 9999,
       "modes": [
         "gre"
       ]
@@ -140,7 +140,7 @@
       "id": "host_interface_device_ip",
       "label": "Watcher host IP, tunnel destination on the device",
       "diagram_label": "6",
-      "type": "ip",
+      "type": "ipv4",
       "source": "user",
       "modes": [
         "gre"

@@ -38,6 +38,9 @@ def open_private(path):
     return open(fd, "w")
 
 
+LINUX_INTERFACE_NAME_MAX_LEN = 15
+
+
 class WATCHER_CONFIG:
     P2P_VETH_SUPERNET_W_MASK = "169.254.0.0/16"
     WATCHER_ROOT_FOLDER = "watcher"
@@ -74,6 +77,7 @@ class WATCHER_CONFIG:
         self.protocol = protocol
         self.asn = 0
         self.organisation_name = ""
+        self._host_veth = ""
         self.watcher_name = ""
         self.topolograph_api_token = ""
         self.enable_xdp = False
@@ -128,6 +132,11 @@ class WATCHER_CONFIG:
                     self.connection_mode = "bgpls"
                 for label, value in self.watcher_config_file_yml.get('topology', {}).get('defaults', {}).get('labels', {}).items():
                     setattr(self, label, value)
+                # The link holds the deployed name; older configs have no host_veth label
+                for link in self.watcher_config_file_yml.get('topology', {}).get('links') or []:
+                    for endpoint in link.get('endpoints', []):
+                        if endpoint.startswith('host:'):
+                            self.host_veth = endpoint.split(':', 1)[1]
                 break
         else:
             raise ValueError(f"Watcher{watcher_num} was not found")
@@ -164,12 +173,9 @@ class WATCHER_CONFIG:
 
     @property
     def host_veth(self):
-        """ Add organisation name at name of interface to allow different interfaces with the same GRE num """
-        linux_ip_link_peer_max_len = 15
-        vhost_inf_name = f"vhost{self.gre_tunnel_number}"
-        organisation_name_short = self.organisation_name[:linux_ip_link_peer_max_len - (len(vhost_inf_name)+1)] # 1 for dash
-        self._host_veth = f"{organisation_name_short}-{vhost_inf_name}" if organisation_name_short else vhost_inf_name
-        return self._host_veth
+        """Unique on the host: the OSPF and IS-IS checkouts number their watchers independently."""
+        # An imported watcher keeps the name it was deployed with
+        return self._host_veth or f"{self.protocol}{self.watcher_num}-gre{self.gre_tunnel_number}"
 
     @host_veth.setter
     def host_veth(self, value_from_yaml_import):
@@ -328,6 +334,17 @@ class WATCHER_CONFIG:
     @staticmethod
     def is_network_the_same(ip_address_w_mask_1, ip_address_w_mask_2):
         return ipaddress.ip_interface(ip_address_w_mask_1).network == ipaddress.ip_interface(ip_address_w_mask_2).network
+
+    def get_gre_endpoints_error(self) -> str:
+        """Why the two tunnel ends cannot form an adjacency; empty when they can."""
+        if not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
+            return "Tunnel's network doesn't match"
+        if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
+            return "Tunnel' IP addresses must be different on endpoints"
+        # The dialog asks the tunnel number after the addresses
+        if self.gre_tunnel_number and len(self.host_veth) > LINUX_INTERFACE_NAME_MAX_LEN:
+            return f"Interface name {self.host_veth} is longer than {LINUX_INTERFACE_NAME_MAX_LEN} characters, use a shorter GRE tunnel number"
+        return ""
 
     def generate_bgplswatcher_config(self):
         """Generate config.toml for bgplswatcher (GoBGP)"""
@@ -571,7 +588,7 @@ class WATCHER_CONFIG:
 |  | netns FRR  |           |                       |                   |
 |  |            Tunnel [4]  |                       | Tunnel [4]        |
 |  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-vhost1    |       +-----+         | IS-IS area num [5]|
+|  |  eth1------+-isis1-gre1|       +-----+         | IS-IS area num [5]|
 |  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
 |  |            |           |       +-----+         |                   |
 |  +------------+           |                       |                   |
@@ -712,16 +729,16 @@ class WATCHER_CONFIG:
             elif self._get_digit_net_mask(self.gre_tunnel_ip_w_mask_watcher) == 32:
                 print("Please provide non /32 subnet for tunnel network")
                 self.gre_tunnel_ip_w_mask_watcher = ""
-            elif not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
-                print("Tunnel's network doesn't match")
-                self.gre_tunnel_ip_w_mask_watcher = ""
-            elif self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
-                print("Tunnel' IP addresses must be different on endpoints")
+            elif self.get_gre_endpoints_error():
+                print(self.get_gre_endpoints_error())
                 self.gre_tunnel_ip_w_mask_watcher = ""
         while not self.gre_tunnel_number:
             self.gre_tunnel_number = input("[4]GRE Tunnel number: ")
             if not self.gre_tunnel_number.isdigit():
                 print("Please provide any positive number")
+                self.gre_tunnel_number = ""
+            elif self.get_gre_endpoints_error():
+                print(self.get_gre_endpoints_error())
                 self.gre_tunnel_number = ""
         # ISIS settings
         while not self.isis_area_num:
@@ -836,6 +853,8 @@ class WATCHER_CONFIG:
                 value = int(value)
             setattr(self, key, value)
         self.isis_area_num = self.do_check_area_num(str(self.isis_area_num))
+        if self.connection_mode == "gre" and self.get_gre_endpoints_error():
+            raise ValueError(self.get_gre_endpoints_error())
         server = config["server"]
         self.watcher_name = server["watcher_name"]
         self.topolograph_api_token = server["watcher_token"]
@@ -884,14 +903,21 @@ class WATCHER_CONFIG:
             'outputs': [{
                 'name': 'http', 'match': tag,
                 'host': server["topolograph_host"], 'port': int(server["topolograph_port"]),
-                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 3,
+                'uri': '/websocket', 'format': 'json', 'json_date_key': '@timestamp', 'retry_limit': 'no_limits',
                 'tls': server["topolograph_tls"],
                 'header': f"Authorization Bearer {server['watcher_token']}",
             }],
         }}
         path = os.path.join(self.FLUENT_BIT_WATCHERS_FOLDER, f"{self.watcher_folder_name}.yaml")
-        with open_private(path) as f:
-            ruamel_yaml_default_mode.dump(fluent_bit_config, f)
+        # Outside the folder backup, so a failed write must never touch the live file
+        temporary_path = f"{path}.tmp"
+        try:
+            with open_private(temporary_path) as f:
+                ruamel_yaml_default_mode.dump(fluent_bit_config, f)
+        except BaseException:
+            os.remove(temporary_path)
+            raise
+        os.replace(temporary_path, path)
 
     @classmethod
     def parse_command_args(cls, args):
