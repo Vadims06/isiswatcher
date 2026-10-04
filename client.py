@@ -29,6 +29,7 @@ class ACTIONS(enum.Enum):
     DIAGNOSTIC = "diagnostic"
     ENABLE_XDP = "enable_xdp"
     DISABLE_XDP = "disable_xdp"
+    PRINT_GRE_CLEANUP = "print_gre_cleanup"
 
 
 def open_private(path):
@@ -39,6 +40,8 @@ def open_private(path):
 
 
 LINUX_INTERFACE_NAME_MAX_LEN = 15
+# The host exec line that adds a GRE NAT or FORWARD rule
+GRE_RULE_RE = re.compile(r'RULE="(?P<rule>[^"]+)".*iptables -A (?P<chain>\w+)')
 
 
 class WATCHER_CONFIG:
@@ -805,23 +808,64 @@ class WATCHER_CONFIG:
         ]
 
     @staticmethod
-    def get_folder_by_watcher_id(watcher_id):
-        """The folder a previous configure.sh run created for this Topolograph watcher, if any."""
+    def get_existed_configs() -> dict:
         root = os.path.join(os.getcwd(), WATCHER_CONFIG.WATCHER_ROOT_FOLDER)
+        configs = {}
         for folder_name in WATCHER_CONFIG.get_existed_watchers():
             config_path = os.path.join(root, folder_name, WATCHER_CONFIG.WATCHER_CONFIG_FILE)
             if not os.path.exists(config_path):
                 continue
             with open(config_path) as f:
-                labels = (ruamel_yaml_default_mode.load(f) or {}).get('topology', {}).get('defaults', {}).get('labels', {})
-            if labels.get('watcher_id') == watcher_id:
+                configs[folder_name] = ruamel_yaml_default_mode.load(f) or {}
+        return configs
+
+    @staticmethod
+    def get_folder_by_watcher_id(watcher_id):
+        """The folder a previous configure.sh run created for this Topolograph watcher, if any."""
+        for folder_name, config in WATCHER_CONFIG.get_existed_configs().items():
+            if config.get('topology', {}).get('defaults', {}).get('labels', {}).get('watcher_id') == watcher_id:
                 return folder_name
         return ""
 
-    def add_watcher_from_answers(self, answers_path):
-        """Build the watcher from the configuration Topolograph returns for a watcher token, without questions."""
+    @staticmethod
+    def get_gre_cleanup_commands() -> list:
+        """containerlab destroy leaves the NAT and FORWARD rules a GRE watcher added on the host."""
+        commands = []
+        for config in WATCHER_CONFIG.get_existed_configs().values():
+            for node in (config.get('topology', {}).get('nodes') or {}).values():
+                for command in (node or {}).get('exec') or []:
+                    match = GRE_RULE_RE.search(command)
+                    if match:
+                        commands.append(f"while iptables -D {match['chain']} {match['rule']} 2>/dev/null; do :; done")
+        return commands
+
+    def print_gre_cleanup(self):
+        print("\n".join(self.get_gre_cleanup_commands()))
+
+    @classmethod
+    def add_watchers_from_answers(cls, answers_path) -> bool:
+        """One response carries every watcher of the checkout, so a rotated sibling token blocks nothing."""
         with open(answers_path) as f:
             config = json.load(f)
+        siblings = config.pop("siblings", {})
+        for watcher_id, sibling in siblings.items():
+            folder_name = sibling is None and cls.get_folder_by_watcher_id(watcher_id)
+            if folder_name:
+                # configure.sh drops its Fluent Bit input along with the folder
+                shutil.rmtree(os.path.join(os.getcwd(), cls.WATCHER_ROOT_FOLDER, folder_name))
+                print(f"Removed {folder_name}: its watcher was deleted in Topolograph")
+        is_built = True
+        for watcher_config in [*filter(None, siblings.values()), config]:
+            try:
+                # Numbers of deleted watchers are reused, so a new folder never collides with a kept one.
+                cls(cls.gen_next_free_number()).add_watcher_from_answers(watcher_config)
+            except Exception as error:
+                print(f"Watcher {watcher_config['name']} failed to build: {error}", file=sys.stderr)
+                is_built = False
+        return is_built
+
+    def add_watcher_from_answers(self, config):
+        """Build the watcher from the configuration Topolograph returns for a watcher token, without questions."""
         existing_folder = self.get_folder_by_watcher_id(config["watcher_id"])
         backup_path = ""
         if existing_folder:
@@ -929,8 +973,9 @@ class WATCHER_CONFIG:
         if args.answers:
             if args.action != ACTIONS.ADD_WATCHER.value:
                 raise ValueError("--answers works with --action add_watcher only")
-            # Numbers of deleted watchers are reused, so a new folder never collides with a kept one.
-            return cls(cls.gen_next_free_number()).add_watcher_from_answers(args.answers)
+            if not cls.add_watchers_from_answers(args.answers):
+                sys.exit(1)
+            return
         watcher_obj.run_command(args.action)
 
     def run_command(self, action):
