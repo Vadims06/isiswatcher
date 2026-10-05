@@ -9,7 +9,6 @@ import re
 import shutil
 import warnings
 from io import StringIO
-import requests
 import sys
 from jinja2 import Environment, FileSystemLoader
 from ruamel.yaml import YAML
@@ -31,6 +30,7 @@ class ACTIONS(enum.Enum):
     ENABLE_XDP = "enable_xdp"
     DISABLE_XDP = "disable_xdp"
     PRINT_GRE_CLEANUP = "print_gre_cleanup"
+    PRINT_IMAGES = "print_images"
 
 
 def open_private(path):
@@ -41,6 +41,8 @@ def open_private(path):
 
 
 LINUX_INTERFACE_NAME_MAX_LEN = 15
+# Marks the rules a watcher adds, so cleanup never deletes a rule the host or another application owns
+GRE_RULE_OWNER = "-m comment --comment topolograph-isiswatcher"
 # The host exec line that adds a GRE NAT or FORWARD rule
 GRE_RULE_RE = re.compile(r'RULE="(?P<rule>[^"]+)".*iptables -A (?P<chain>\w+)')
 
@@ -83,9 +85,7 @@ class WATCHER_CONFIG:
         self.organisation_name = ""
         self._host_veth = ""
         self.watcher_name = ""
-        self.topolograph_api_token = ""
         self.enable_xdp = False
-        self.enable_topolograph = False
         # BGP-LS specific attributes
         self.bgpls_router_ip = ""
         self.bgpls_router_as = 0
@@ -204,20 +204,6 @@ class WATCHER_CONFIG:
     def watcher_folder_path(self):
         return os.path.join(self.watcher_root_folder_path, self.watcher_folder_name)
 
-    def _existing_topolograph_api_token_from_template_env(self) -> str:
-        """Return TOPOLOGRAPH_API_TOKEN from watcher-template/watcher.env when non-empty (skip re-prompt)."""
-        path = os.path.join(self.watcher_template_path, "watcher.env")
-        if not os.path.isfile(path):
-            return ""
-        prefix = "TOPOLOGRAPH_API_TOKEN="
-        with open(path, encoding="utf-8") as fp:
-            for raw in fp:
-                line = raw.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if line.startswith(prefix):
-                    return line[len(prefix):].strip().strip('"').strip("'")
-        return ""
 
     @property
     def watcher_template_path(self):
@@ -288,45 +274,7 @@ class WATCHER_CONFIG:
     def _get_digit_net_mask(ip_address_w_mask):
         return ipaddress.ip_interface(ip_address_w_mask).network.prefixlen
 
-    def _add_topolograph_host_to_env(self):
-        # Create .env from .env.template if it doesn't exist
-        if not os.path.exists('.env'):
-            if os.path.exists('.env.template'):
-                shutil.copyfile('.env.template', '.env')
-                print("Created .env file from .env.template\n")
-            else:
-                raise FileNotFoundError(".env file not found and .env.template is missing. Please create .env file manually.")
-        # open local .env file and replace TOPOLOGRAPH_HOST env
-        with open('.env', 'r') as f:
-            lines = f.readlines()
-        with open('.env', 'w') as f:
-            for line in lines:
-                if line.startswith('TOPOLOGRAPH_HOST'):
-                    f.write(f'TOPOLOGRAPH_HOST={self.host_interface_device_ip}\n')
-                    print(f"TOPOLOGRAPH_HOST set to {self.host_interface_device_ip} in .env\n")
-                elif line.startswith('WEBHOOK_URL'):
-                    f.write(f'WEBHOOK_URL={self.host_interface_device_ip}\n')
-                    print(f"WEBHOOK_URL set to {self.host_interface_device_ip} in .env\n")
-                else:
-                    f.write(line)
 
-    def do_check_topolograph_availability(self):
-        from dotenv import load_dotenv
-        load_dotenv()
-        # using TOPOLOGRAPH_* env variable check if get request is ok
-        try:
-            _login, _pass = os.getenv('TOPOLOGRAPH_WEB_API_USERNAME_EMAIL', ''), os.getenv('TOPOLOGRAPH_WEB_API_PASSWORD', '')
-            _host, _port = os.getenv('TOPOLOGRAPH_HOST', ''), os.getenv('TOPOLOGRAPH_PORT', '')
-            r_get = requests.get(f'http://{_host}:{_port}/api/graph/', auth=(_login, _pass), timeout=(5, 30))
-            status_name = 'ok' if r_get.ok or r_get.status_code == 404 else 'bad'
-            print(f"Access to {_host}:{_port} is {status_name}")
-            if r_get.status_code != 200 and r_get.status_code != 404:
-                print(f"Access to {_host}:{_port} is {r_get.status_code} error, details: {r_get.text}")
-            return r_get.ok
-        except Exception as e:
-            print(f"Warning: Could not check Topolograph availability: {e}")
-            print("Continuing with watcher setup...")
-            return False
 
     @staticmethod
     def get_nth_elem_from_iter(iterator, number):
@@ -341,10 +289,17 @@ class WATCHER_CONFIG:
 
     def get_gre_endpoints_error(self) -> str:
         """Why the two tunnel ends cannot form an adjacency; empty when they can."""
+        # The dialog asks the host address last, so it may still be empty
+        if self.host_interface_device_ip and self.gre_tunnel_network_device_ip == self.host_interface_device_ip:
+            return "Router and host addresses must differ"
         if not self.is_network_the_same(self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher):
             return "Tunnel's network doesn't match"
         if self.gre_tunnel_ip_w_mask_network_device == self.gre_tunnel_ip_w_mask_watcher:
             return "Tunnel' IP addresses must be different on endpoints"
+        outer_addresses = {self.gre_tunnel_network_device_ip, self.host_interface_device_ip} - {""}
+        if any(str(ipaddress.ip_interface(address).ip) in outer_addresses
+               for address in (self.gre_tunnel_ip_w_mask_network_device, self.gre_tunnel_ip_w_mask_watcher)):
+            return "Tunnel addresses must differ from the outer router and host addresses"
         # The dialog asks the tunnel number after the addresses
         if self.gre_tunnel_number and len(self.host_veth) > LINUX_INTERFACE_NAME_MAX_LEN:
             return f"Interface name {self.host_veth} is longer than {LINUX_INTERFACE_NAME_MAX_LEN} characters, use a shorter GRE tunnel number"
@@ -453,7 +408,6 @@ class WATCHER_CONFIG:
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_LOGFILE': "/home/watcher/watcher/logs/watcher.log"})
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'PEER_ID': self.gre_tunnel_network_device_ip}) # for BGP-LS backward compatibility
         watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'WATCHER_IP': self.host_interface_device_ip})
-        watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]['env'].update({'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token})
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
@@ -554,7 +508,6 @@ class WATCHER_CONFIG:
             'WATCHER_NAME': self.watcher_name,
             'AREA_NUM': self.isis_area_num,
             'WATCHER_IP': '',
-            'TOPOLOGRAPH_API_TOKEN': self.topolograph_api_token,
         }
         # Remove stages if they reference deleted nodes
         if 'stages' in watcher_config_yml['topology']['nodes'][self.WATCHER_NODE_NAME]:
@@ -668,23 +621,6 @@ class WATCHER_CONFIG:
             self.bgpls_grpc_port = 50200 + self.watcher_num
         else:
             self.bgpls_grpc_port = 50100 + self.watcher_num  # Default to ISIS port
-        # Topolograph's IP settings
-        self.enable_topolograph = None
-        while self.enable_topolograph is None:
-            enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
-            if not enable_topolograph_reply:
-                self.enable_topolograph = True
-            else:
-                if enable_topolograph_reply.lower().strip() == 'y':
-                    self.enable_topolograph = True
-                elif enable_topolograph_reply.lower().strip() == 'n':
-                    self.enable_topolograph = False
-        if self.enable_topolograph:
-            # For BGP-LS, we need host IP for Topolograph
-            while not self.host_interface_device_ip:
-                self.host_interface_device_ip = self.do_check_ip(input("Watcher host IP address: "))
-            self._add_topolograph_host_to_env()
-            self.do_check_topolograph_availability()
         # Tags
         asn_default = self.bgpls_watcher_as if self.bgpls_watcher_as else 0
         asn_input = input(f"AS number, where IS-IS is configured: [{asn_default}] ")
@@ -698,12 +634,6 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
-        existing_token = self._existing_topolograph_api_token_from_template_env()
-        if existing_token:
-            self.topolograph_api_token = existing_token
-        else:
-            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
-            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
 
     def add_watcher_dialog(self):
         # Connection mode should already be set by add_watcher
@@ -748,22 +678,11 @@ class WATCHER_CONFIG:
         while not self.isis_area_num:
             self.isis_area_num = self.do_check_area_num(input("[5]IS-IS area number [49.xxxx]: "))
         # Host interface name for NAT
-        while not self.host_interface_device_ip:
+        # The host address is asked last, so the pair check runs again once it is known
+        while not self.host_interface_device_ip or self.get_gre_endpoints_error():
+            if self.host_interface_device_ip:
+                print(self.get_gre_endpoints_error())
             self.host_interface_device_ip = self.do_check_ip(input("[6]Watcher host IP address: "))
-        # Topolograph's IP settings
-        self.enable_topolograph = None
-        while self.enable_topolograph is None:
-            enable_topolograph_reply = input("Enable Topolograph? [Y/n] ")
-            if not enable_topolograph_reply:
-                self.enable_topolograph = True
-            else:
-                if enable_topolograph_reply.lower().strip() == 'y':
-                    self.enable_topolograph = True
-                elif enable_topolograph_reply.lower().strip() == 'n':
-                    self.enable_topolograph = False
-        if self.enable_topolograph:
-            self._add_topolograph_host_to_env()
-            self.do_check_topolograph_availability()
         # Tags
         self.asn = input("AS number, where IS-IS is configured: [0]")
         if not self.asn and not self.asn.isdigit():
@@ -772,12 +691,6 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
-        existing_token = self._existing_topolograph_api_token_from_template_env()
-        if existing_token:
-            self.topolograph_api_token = existing_token
-        else:
-            print("To enable heartbeats, generate an API token in Topolograph UI: Settings → API Tokens → Create token. Copy the sk-... value and paste it below.")
-            self.topolograph_api_token = str(input("Topolograph API token (sk-..., leave empty to skip heartbeats): ")).strip()
         self.enable_xdp = None
         while self.enable_xdp is None:
             enable_xdp_reply = input("Enable XDP? [y/N] ")
@@ -796,10 +709,10 @@ class WATCHER_CONFIG:
             f'ip address add {self.p2p_veth_host_ip_w_mask} dev {self.host_veth}',
             f'ip netns exec {self.netns_name} ip tunnel add gre1 mode gre local {str(self.p2p_veth_watcher_ip_obj)} remote {self.gre_tunnel_network_device_ip} ttl 100',
             f'ip netns exec {self.netns_name} ip address add {self.gre_tunnel_ip_w_mask_watcher} dev gre1',
-            f'bash -c \'RULE="-t nat -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE\'',
-            f'bash -c \'RULE="-t nat -p gre -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
-            f'bash -c \'RULE="-t filter -p gre -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
-            f'bash -c \'RULE="-t filter -p gre -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
+            f'bash -c \'RULE="-t nat -p gre {GRE_RULE_OWNER} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -j SNAT --to-source {self.host_interface_device_ip}"; sudo iptables -C POSTROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A POSTROUTING $$RULE\'',
+            f'bash -c \'RULE="-t nat -p gre {GRE_RULE_OWNER} -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre {GRE_RULE_OWNER} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
+            f'bash -c \'RULE="-t filter -p gre {GRE_RULE_OWNER} -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev veth1', # for xdp
             # enable GRE after applying XDP filter
             #f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
@@ -931,46 +844,52 @@ class WATCHER_CONFIG:
             raise ValueError(self.get_gre_endpoints_error())
         server = config["server"]
         self.watcher_name = server["watcher_name"]
-        self.topolograph_api_token = server["watcher_token"]
-        self.enable_topolograph = True
         if self.connection_mode == "bgpls":
             self.bgpls_grpc_port = 50100 + self.watcher_num
             self.bgpls_ebgp_multihop = self.bgpls_router_as != self.bgpls_watcher_as
         self.create_folder_with_settings()
         self._pin_answers_config(config["watcher_id"], server)
-        self._write_fluent_bit_output(server)
+        self._write_fluent_bit_output(config["watcher_id"], server)
         print(f"Watcher {self.watcher_name} is configured in {self.watcher_folder_name}")
 
-    def _pin_answers_config(self, watcher_id, server):
-        """Pin images to this checkout's version and point the watcher at Topolograph with its own token."""
+    @classmethod
+    def get_pinned_images(cls) -> dict:
         with open("VERSION") as f:
             version = f.read().strip()
         registry_prefix = os.getenv("REGISTRY_PREFIX", "")
+        return {node_name: registry_prefix + image.format(version=version)
+                for node_name, image in cls.PINNED_IMAGES.items()}
+
+    def print_images(self):
+        """configure.sh pulls them before it takes the running watchers down."""
+        print("\n".join(self.get_pinned_images().values()))
+
+    def _pin_answers_config(self, watcher_id, server):
+        """Pin images to this checkout's version and point the watcher at Topolograph with its own token."""
+        pinned_images = self.get_pinned_images()
         config_yml = self.watcher_config_file_yml
         config_yml['topology']['defaults']['labels']['watcher_id'] = watcher_id
         for node_name, node in config_yml['topology']['nodes'].items():
-            if node_name in self.PINNED_IMAGES:
-                node['image'] = registry_prefix + self.PINNED_IMAGES[node_name].format(version=version)
+            if node_name in pinned_images:
+                node['image'] = pinned_images[node_name]
         config_yml['topology']['nodes'][self.WATCHER_NODE_NAME].setdefault('env', {}).update({
             'TOPOLOGRAPH_HOST': server["topolograph_host"],
             'TOPOLOGRAPH_PORT': server["topolograph_port"],
             'TOPOLOGRAPH_API_TOKEN': server["watcher_token"],
-            # Empty login makes the watcher sign in with its token
-            'TOPOLOGRAPH_WEB_API_USERNAME_EMAIL': "",
-            'TOPOLOGRAPH_WEB_API_PASSWORD': "",
         })
         self._do_save_watcher_config_file(config_yml)
 
-    def _write_fluent_bit_output(self, server):
+    def _write_fluent_bit_output(self, watcher_id, server):
         """One Fluent Bit input and output per watcher, so each sends its events with its own token."""
         os.makedirs(self.FLUENT_BIT_WATCHERS_FOLDER, exist_ok=True)
-        tag = f"onboarding.{self.watcher_folder_name}"
+        # A deleted watcher's folder number is reused, so state is keyed by the id, not the folder
+        tag = f"onboarding.{watcher_id}"
         fluent_bit_config = {'pipeline': {
             'inputs': [{
                 'name': 'tail', 'tag': tag,
                 'path': f"/home/watcher/watcher/logs/{self.watcher_log_file_name}",
                 # Offsets survive a restart; start.sh starts Fluent Bit before the watchers write
-                'db': f"/fluent-bit/state/{self.watcher_folder_name}.db",
+                'db': f"/fluent-bit/state/{watcher_id}.db",
                 'read_from_head': False, 'refresh_interval': 1, 'rotate_wait': 1,
                 # Undelivered chunks survive a restart of Fluent Bit
                 'storage.type': 'filesystem',
@@ -1018,6 +937,9 @@ class WATCHER_CONFIG:
         return method()
 
     def add_watcher(self):
+        print("Manual setup keeps events in local logs and the exporters set in .env (ELK, Zabbix, Loki, webhooks). "
+              "Topology and events do not appear in Topolograph: for that, add the watcher on Topolograph's Watchers page "
+              "and run the command it shows.\n")
         # Ask for connection mode first to show correct banner
         connection_mode_input = None
         while connection_mode_input not in ["gre", "bgpls"]:

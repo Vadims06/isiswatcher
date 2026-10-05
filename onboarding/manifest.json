@@ -22,7 +22,7 @@
       "router_examples": [
         {
           "vendor": "Cisco",
-          "config": "interface Tunnel{gre_tunnel_number}\n ip address {gre_tunnel_ip_w_mask_network_device}\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
+          "config": "interface Tunnel{gre_tunnel_number}\n ip address {gre_tunnel_ip_w_mask_network_device_with_netmask}\n tunnel mode gre ip\n tunnel source {gre_tunnel_network_device_ip}\n tunnel destination {host_interface_device_ip}\n ip router isis <name>\n isis network point-to-point"
         }
       ]
     },
@@ -38,7 +38,7 @@
       "router_examples": [
         {
           "vendor": "Juniper JunOS",
-          "config": "set protocols mpls traffic-engineering database import policy ted2nlri\nset policy-options policy-statement ted2nlri term 1 from protocol isis\nset policy-options policy-statement ted2nlri term 1 then accept\nset policy-options policy-statement ted2nlri term 2 then reject\nset protocols isis traffic-engineering l3-unicast-topology\nset protocols mpls traffic-engineering database import l3-unicast-topology bgp-link-state\nset protocols bgp group topolograph type internal\nset protocols bgp group topolograph family traffic-engineering unicast\nset protocols bgp group topolograph peer-as {bgpls_watcher_as}\nset protocols bgp group topolograph neighbor <watcher-host-ip>\nset protocols bgp group topolograph export isis2bgp\nset policy-options policy-statement isis2bgp term 1 from protocol isis\nset policy-options policy-statement isis2bgp term 1 then accept"
+          "config": "set protocols mpls traffic-engineering database import policy ted2nlri\nset policy-options policy-statement ted2nlri term 1 from protocol isis\nset policy-options policy-statement ted2nlri term 1 then accept\nset policy-options policy-statement ted2nlri term 2 then reject\nset protocols isis traffic-engineering l3-unicast-topology\nset protocols mpls traffic-engineering database import l3-unicast-topology bgp-link-state\n# for eBGP: type external, and set protocols bgp group topolograph multihop\nset protocols bgp group topolograph type internal\nset protocols bgp group topolograph family traffic-engineering unicast\nset protocols bgp group topolograph peer-as {bgpls_watcher_as}\nset protocols bgp group topolograph neighbor <watcher-host-ip>\nset protocols bgp group topolograph export isis2bgp\nset policy-options policy-statement isis2bgp term 1 from protocol isis\nset policy-options policy-statement isis2bgp term 1 then accept"
         }
       ]
     }
@@ -110,6 +110,7 @@
       "label": "GRE tunnel IP on the watcher, with mask, same subnet",
       "diagram_label": "3",
       "type": "ip_interface",
+      "same_network_as": "gre_tunnel_ip_w_mask_network_device",
       "source": "user",
       "modes": [
         "gre"
@@ -181,7 +182,7 @@
       "env": "REGISTRY_PREFIX",
       "source": "default",
       "default": "",
-      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[A-Za-z0-9._-]+)*/)?$",
+      "pattern": "^([A-Za-z0-9.-]+(:[0-9]+)?(/[a-z0-9]+([._-][a-z0-9]+)*)*/)?$",
       "help": "Prefix put before every image, e.g. mirror.example.com:5000/"
     }
   ],
