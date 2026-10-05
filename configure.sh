@@ -162,7 +162,8 @@ for input in fluentbit/watchers/*.yaml; do
 done
 
 unit=/etc/systemd/system/topolograph-isiswatcher.service
-sed "s|/opt/topolograph/isiswatcher|$checkout|" onboarding/topolograph-isiswatcher.service > "$unit"
+# Replaced in one step, so a failed write never leaves a truncated unit
+sed "s|/opt/topolograph/isiswatcher|$checkout|" onboarding/topolograph-isiswatcher.service > "$unit.new" && mv "$unit.new" "$unit"
 systemctl daemon-reload
 systemctl enable topolograph-isiswatcher.service >/dev/null
 echo "Starting the watchers of $checkout"
