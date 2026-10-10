@@ -34,11 +34,6 @@ services:
       EXPORT_TO_ZABBIX_BOOL: $EXPORT_TO_ZABBIX_BOOL
       EXPORT_TO_WEBHOOK_URL_BOOL: $EXPORT_TO_WEBHOOK_URL_BOOL
       WEBHOOK_URL: $WEBHOOK_URL
-      EXPORT_TO_TOPOLOGRAPH_SOCKET: $EXPORT_TO_TOPOLOGRAPH_SOCKET
-      TOPOLOGRAPH_HOST: $TOPOLOGRAPH_HOST
-      TOPOLOGRAPH_PORT: $TOPOLOGRAPH_PORT
-      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       EXPORT_TO_LOKI_BOOL: $EXPORT_TO_LOKI_BOOL
       LOKI_URL: $LOKI_URL
     healthcheck:
@@ -49,13 +44,11 @@ services:
     restart: unless-stopped
     depends_on:
       - isis-logstash-index-creator
-    networks:
-      - internal
     profiles:
       - logstash
   
   isis-logstash-index-creator:
-    image: vadims06/isis-watcher:latest
+    image: ${REGISTRY_PREFIX:-}vadims06/isis-watcher:${WATCHER_VERSION:-v3.4.0}
     container_name: isis-logstash-index-creator
     volumes:
       - type: bind
@@ -74,19 +67,26 @@ services:
       interval: 30s
       timeout: 10s
       retries: 50
-    networks:
-      - internal
     profiles:
       - logstash
 
   isis-fluentbit:
-    image: fluent/fluent-bit:latest
+    image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
     container_name: isis-fluentbit
-    command: ["-c", "/fluent-bit/etc/fluent-bit.yaml"]
+    # onboarding.yaml when installed from Topolograph's Watchers page
+    command: ["-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
     volumes:
       - type: bind
         source: ./fluentbit/fluent-bit.yaml
         target: /fluent-bit/etc/fluent-bit.yaml
+        read_only: true
+      - type: bind
+        source: ./fluentbit/onboarding.yaml
+        target: /fluent-bit/etc/onboarding.yaml
+        read_only: true
+      - type: bind
+        source: ./fluentbit/watchers
+        target: /fluent-bit/etc/watchers
         read_only: true
       - type: bind
         source: ./fluentbit/parsers.conf
@@ -100,23 +100,18 @@ services:
         source: ./watcher/logs
         target: /home/watcher/watcher/logs
         read_only: true
+      - type: volume
+        source: fluent-bit-state
+        target: /fluent-bit/state
     environment:
       # Topolograph configuration
-      TOPOLOGRAPH_HOST: ${TOPOLOGRAPH_HOST}
-      TOPOLOGRAPH_PORT: ${TOPOLOGRAPH_PORT}
-      TOPOLOGRAPH_WEB_API_USERNAME_EMAIL: ${TOPOLOGRAPH_WEB_API_USERNAME_EMAIL}
-      TOPOLOGRAPH_WEB_API_PASSWORD: ${TOPOLOGRAPH_WEB_API_PASSWORD}
       # Webhook configuration
       WEBHOOK_URL: ${WEBHOOK_URL}
       WEBHOOK_HOST: ${WEBHOOK_HOST:-192.168.0.33}
       WEBHOOK_PORT: ${WEBHOOK_PORT:-8081}
     restart: unless-stopped
-    networks:
-      - internal
     profiles:
       - fluentbit  # Use profile to control which service runs
 
-networks:
-  internal:
-    external:
-      name: topolograph_backend
+volumes:
+  fluent-bit-state:
