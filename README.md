@@ -24,6 +24,7 @@ No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
   * Maximum Reservable Link Bandwidth
   * Unreserved Bandwidth
   * Traffic Engineering Default Metric
+* IS-IS node flags: overload, attached, and ABR/ASBR role changes
 
 ## Architecture
 
