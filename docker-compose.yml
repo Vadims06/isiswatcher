@@ -73,6 +73,8 @@ services:
   isis-fluentbit:
     image: ${REGISTRY_PREFIX:-}fluent/fluent-bit:3.2
     container_name: isis-fluentbit
+    # no Docker network of its own, so none to collide with containerlab's
+    network_mode: host
     # onboarding.yaml when installed from Topolograph's Watchers page
     command: ["-c", "/fluent-bit/etc/${FLUENT_BIT_CONFIG:-fluent-bit.yaml}"]
     volumes:
