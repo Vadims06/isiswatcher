@@ -85,7 +85,7 @@ The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. T
 
 ### Functional Role
 Watcher stores topology events/state to show historical network state, whereas Topolograph exhibits present network state and potential future outcomes.   
-![](./docs/functional-watcher-role.png)
+![Watcher collects control-plane changes; Topolograph shows the past, the present and the future of the topology](./docs/functional-watcher-role.png)
 
 ### Supported IS-IS TLV 
 | TLV name                         | TLV | subTLV                 |
@@ -206,7 +206,7 @@ sudo cat /sys/kernel/debug/tracing/trace_pipe
 ```
 To enable/disable XDP
 ```
-sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:latest python3 ./client.py --action enable_xdp --watcher_num <num>
+cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action enable_xdp --watcher_num <num>
 ```
 ##### Support
 Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
@@ -215,10 +215,14 @@ If you faced with XDP errors - skip it while generating config file or use `--ac
 
 
 ## Troubleshooting
-**Installed from the Monitoring page?** The Monitoring page shows which step is missing: command run, data arrived, graph. `sudo systemctl status topolograph-isiswatcher` shows whether the watchers started; `401` in `sudo docker logs isis-fluentbit` means the token was rotated or the watcher deleted, so copy the command from the watcher page and run it again. The steps below are written for the manual setup.
+Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): it shows which step is missing: the install command ran, data arrived, the graph exists.
+
+On the watcher host an installed watcher lives in `/opt/topolograph/isiswatcher`:
+* `sudo systemctl status topolograph-isiswatcher` shows whether the watchers started.
+* `sudo docker logs isis-fluentbit` shows delivery to Topolograph. `401` means the watcher's token was rotated or the watcher was deleted: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
 
 ##### Symptoms
-Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is empty.
+Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...log` (under `/opt/topolograph/isiswatcher` for an installed watcher) stays empty. `<num>` is the number in the watcher's folder name: `ls /opt/topolograph/isiswatcher/watcher/`.
 
 ##### Steps:
 
@@ -226,7 +230,7 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
 1. Run diagnostic script. It will check **IS-IS Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
 
     ```
-    sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:latest python3 ./client.py --action diagnostic --watcher_num <num>
+    cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action diagnostic --watcher_num <num>
     ``` 
 2. Login on FRR, check adjancency:   
     ```
@@ -282,22 +286,16 @@ Networks changes are not tracked. Log file `./watcher/logs/watcher...log` is emp
     - Check that gRPC port (default: 50100+watcher_num for IS-IS) is accessible
     - Verify both containers are running and can communicate
 ##### Symptoms
-Dashboard page is blank. Events are not present on OSPF/IS-IS Monitoring page.
+The watcher log has changes, but Topolograph shows no events.
 ##### Steps:
-**GRE Mode**: IS-IS Watcher consists of three services: IS-ISd/FRR [1] -> Watcher [2] -> Logstash [3] -> ELK & Zabbix & WebHooks; a watcher installed from the Monitoring page sends to Topolograph through Fluent Bit.  
-**BGP-LS Mode**: IS-IS Watcher consists of: bgplswatcher (GoBGP) [1] -> Watcher [2] -> Logstash [3] -> ELK & Zabbix & WebHooks; a watcher installed from the Monitoring page sends to Topolograph through Fluent Bit.
-
-1. Check if topology changes are tracked in `./watcher/logs/watcher...log` file (previous case)   
-You should see tracked changes of your network, i.e. 
+The chain is: FRR (GRE mode) or bgplswatcher (BGP-LS mode) -> Watcher -> Fluent Bit -> Topolograph.
+1. Check that the watcher log has the change, as in the previous case:
     ```
     2024-10-08T22:54:54Z,watcher1,1,network,4ffe::192:168:145:4/127,changed,old_cost:44,new_cost:4,0200.1001.0004,,49.0002,12345,internal,0
     ```
-2. Check that the log shipper from [docker-compose.yml](./docker-compose.yml) is running via `docker ps` (`isis-logstash` with profile `logstash`, or `isis-fluentbit` with profile `fluentbit`).  
+2. Check that `isis-fluentbit` is running (`sudo docker ps`) and that its logs show no `401` or `403` (see above).
 
-    1. With Logstash: uncomment `DEBUG_BOOL="True"` in `.env` and run `docker logs -f isis-logstash`.
-    2. Copy and paste the log from the first step in watcher's log file `./watcher/logs/watcher#-gre#-isis.isis.log`. With Logstash, `docker logs -f isis-logstash` should show the event; with Fluent Bit only, use `docker logs -f isis-fluentbit` if you need to debug the agent.
-  
-3. For a watcher installed from the Monitoring page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
+For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Troubleshooting Logstash](docs/exporters.md#troubleshooting-logstash).
 
  ### Versions
  #### FRR
@@ -319,17 +317,6 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
  sudo docker/alpine/build.sh
  ```
  4. Inspect your new FRR image name using `docker image ls` and replace `router/image` by your own image name in `isiswatcher/watcher/watcher-template/config.yml`
-
- ### Minimum Logstash version
- 7.17.21, this version includes bug fix of [issues_281](https://github.com/logstash-plugins/logstash-input-file/issues/281), [issues_5115](https://github.com/elastic/logstash/issues/5115)
-
-> [!NOTE]
-> **HTTP output: Logstash vs Fluent Bit** — the `http` plugins use different `format` options and batching rules. Align the receiver (e.g. Topolograph `/websocket`) with the body shape you send.
->
-> * **Logstash** ([http output](https://www.elastic.co/guide/en/logstash/current/plugins-outputs-http.html)): `format` is one of `json` (default), `json_batch`, `form`, or `message`. With **`json`**, each request body is typically **one JSON object per event**. With **`json_batch`**, each request sends **one JSON array** containing a whole pipeline batch (common for Logstash-to-Logstash). `content_type` defaults from `format` (e.g. `application/json` for `json` / `json_batch`).
-> * **Fluent Bit** ([http output](https://docs.fluentbit.io/manual/pipeline/outputs/http)): `Format` is one of `json` (default), `json_lines`, `json_stream`, `msgpack`, or `gelf`. With **`json`**, the body is a **JSON array** of records for a flush chunk. **`json_lines`** is newline-delimited JSON (one object per line). How many records appear in one POST is driven mainly by the engine **chunk** and the global **[SERVICE] `Flush`** interval, not by Logstash’s `json` vs `json_batch` switch.
->
-> Example Fluent Bit pipeline for this repo: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml).
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
