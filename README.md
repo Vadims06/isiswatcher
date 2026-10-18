@@ -1,17 +1,32 @@
 # IS-IS Topology Watcher
-IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through either a specially established IS-IS adjacency (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start.
+IS-IS Watcher streams IS-IS topology changes into Topolograph: every adjacency, cost and prefix change appears on the graph and on its timeline, grouped by level L1 and L2.
 
 > [!NOTE]
 > Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
 
+## What you see in Topolograph
+* **Monitoring** (top menu): events as a histogram by category over the period you pick, with the events table below.
+* **Events** tab of a graph: the same events on the timeline, grouped **By category** or **By router**. The graph highlights the routers and links of each event.
+* **Event search**: the events table filtered by router, event type (adjacency, metric, network) and period.
+* **Click an event** to open the graph as it was at that moment. **Back to live** returns to the current graph.
+* IS-IS events carry the level (L1 or L2) and TE metric changes.
+
 ## Quick start
 1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (IS-IS Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
 
-    ![Add watcher: choose type and mode](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/watcher-mode.png)
+    ![Add watcher: choose type and mode](docs/ui/watcher-mode.png)
 
-    ![Add watcher: install command](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/watcher-install.png)
+    ![Add watcher: install command](docs/ui/watcher-install.png)
 
-2. Run the command on a Docker host with containerlab. It downloads `install.sh` pinned to a release tag, checks its SHA-256 and runs it with `--url`, `--token` and `--ref`; `install.sh` clones this repository into `/opt/topolograph/isiswatcher`, checks out the tag and starts `configure.sh`. The same steps by hand:
+2. Run the command on a Docker host with containerlab. It downloads `install.sh` pinned to a release tag, checks its SHA-256 and runs it with `--url`, `--token` and `--ref`:
+
+    ```bash
+    curl -fsSLo install.sh https://raw.githubusercontent.com/Vadims06/isiswatcher/<version>/install.sh \
+      && echo "<sha256>  install.sh" | sha256sum -c \
+      && sudo bash install.sh --url <topolograph-url> --token <watcher-token> --ref <version>
+    ```
+
+    `install.sh` clones this repository into `/opt/topolograph/isiswatcher`, checks out the tag and starts `configure.sh`. The same steps by hand:
 
     ```bash
     # 1. Download
@@ -23,9 +38,20 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
     `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-isiswatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
 3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
-To run without Topolograph (text logs, ELK, Zabbix, Loki, webhooks), expand **Manual setup** in [How to connect IS-IS watcher to real network](#how-to-connect-is-is-watcher-to-real-network). To move a watcher set up by hand to Topolograph, see [Moving a watcher installed by hand](#moving-a-watcher-installed-by-hand).
-
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
+
+### Requirements and more watchers
+1. Choose a Linux host with Docker, Docker Compose v2, [containerlab](https://containerlab.dev/install/), curl and git; GRE mode also needs iptables and conntrack.
+2. Launch your own Topolograph with [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or use the public https://topolograph.com.
+3. To add another watcher on the same host, repeat step 1 of the Quick start: every watcher of the checkout is rebuilt from its own registration. To change answers or after **Rotate token**, run `configure.sh` again; when a newer version is out, the watcher page shows the update command.
+4. Configure the network device, see [Device configuration](#device-configuration).
+
+### Moving a watcher installed by hand
+To move a watcher set up by hand to Topolograph:
+1. Stop it in its old checkout with `sudo containerlab destroy -t watcher/<watcher folder>/config.yml` and move that folder out of the checkout. Two GRE watchers towards one router from one host cannot run at the same time.
+2. Add it on the Monitoring page with the same answers and run the command the page shows.
+
+The manual setup is described in [docs/exporters.md](docs/exporters.md).
 
 ## IS-IS Watcher detects the following network events:
 * IS-IS neighbor adjacency Up/Down
@@ -37,6 +63,7 @@ No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
   * Maximum Reservable Link Bandwidth
   * Unreserved Bandwidth
   * Traffic Engineering Default Metric
+
 
 ## Architecture
 
@@ -86,27 +113,6 @@ The demo shows how IS-IS watcher detected:
 5. 0100.1001.0004 went down and 0100.1001.0005 (router5) detected that 
 ![](./docs/is_is_watcher_demo.gif)
 
-## Discovering IS-IS logs in Kibana. Examples
-#### Cost attribute, metric
-IS-IS cost changes on links  
-![](./docs/cost-changes-raw-logs.png)
-
-#### IS-IS adjacency
-Logs if IS-IS adjacency was Up/Down or any networks appeared/disappeared.  
-![](./docs/host-updown-raw-logs.png)
-
-#### IS-IS TE metric
-Latest events about links with admin group **17** with unreserved bandwidth for priority of 0 less than 100Mbits
-![](./docs/kibana_discovery_te_log_with_admin_group_as_a_filter.png)
-
-#### Full IS-IS TE log
-![](./docs/kibana_discovery_te_log.png)
-
-#### Topolograph IS-IS Monitoring (Enterprise).
-Monitoring dashboard allows to see events on the timeline and on the topology. Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
-Events are grouped by IS-IS level (L1/L2). 
-![Events in Topolograph](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/events.png)  
-Here is a demo of checking events on Monitoring dashboard `./docs/isisdemo_with_topolograph_au.mp4`   
 
 ## Watcher Heartbeats
 
@@ -123,211 +129,21 @@ A watcher added on Topolograph's Monitoring page sends heartbeats with its own t
 | `HEARTBEAT_INTERVAL` | `60` | Seconds between heartbeats. |
 | `WATCHER_IP` | _(auto)_ | Override the watcher's reported source IP (`srcid`). Useful in containers where hostname resolution returns `127.0.1.1`. |
 
-## IS-IS topology change notification/alarming via Zabbix. Examples
-Zabbix's dashboard with active alarms. It's universal method to track OSPF and IS-IS events. *The screenshot is taken from OSPF watcher.*  
-![](./docs/zabbix-ui/zabbix_dashboard_with_all_alarms.png)
-#### Zabbix IS-IS neighbor up/down alarm
-This alarm tracks all new IS-IS/OSPF adjacencies or when a device loses its neighbor. *The screenshot is taken from OSPF watcher.*  
-![](./docs/zabbix-ui/zabbix_ospf_neighbor_up_log_latest_data.png)
-#### Zabbix IS-IS Cost changed on transit links
-Transit links are all links between active IS-IS/OSPF neighbors. If cost on a link was changed it might affect all actual/shortest paths traffic follows. *The screenshot is taken from OSPF watcher.*   
-![](./docs/zabbix-ui/zabbix_ospf_link_cost_change_log_latest_data.png)
-#### Zabbix alert if IS-IS network was stopped announcing from node
-If a subnet was removed from IS-IS/OSPF node (the node withdrew it from the announcement) it means the network from this node became unavailable for others, this event will be logged too. *The screenshot is taken from OSPF watcher.*  
-![](./docs/zabbix-ui/zabbix_ospf_network_up_log_latest_data.png)
-
-#### Slack notification
-HTTP POST messages can be easily accepted by messengers, which allows to get instant notifications of IS-IS/OSPF topology changes: *The screenshot is taken from OSPF watcher.*   
-![](./docs/slack/slack_notification.PNG)
-
-## Push IS-IS topology changes to Loki
-
-You can configure [Loki](https://grafana.com/oss/loki/) to receive topology changes. Edit `.env` and set `EXPORT_TO_LOKI_BOOL` and `LOKI_URL`.
-
-Both shippers declare the same stream labels, so one set of Grafana queries
-works whichever of them you run:
-
-| Label | Values |
-|---|---|
-| `job` | `topolograph-isis` |
-| `event_name` | `network`, `host`, `metric`, `temetric`, `node` |
-| `event_status` | `up`, `down`, `changed` |
-| `area_num` | `49.0001` (IS-IS area) |
-| `asn` | autonomous system number, e.g. `65001` |
-| `watcher_name` | name of the watcher that reported the event |
-
-Example query: `{job="topolograph-isis", event_status="down"}`
 
 ## Quick lab
 #### Containerlab
 Containerlab's topology is placed under **containerlab** folder. Local `README` includes instructions how to run it. IS-IS topology changes are printed by Watcher in a text file only.
-![IS-IS watcher containerlab](./containerlab/frr01/container_lab.drawio.png)
+![IS-IS watcher containerlab](./containerlab/isis01/container_lab.drawio.png)
 ```
-./containerlab/frr01/prepare.sh
-sudo clab deploy --topo ./containerlab/frr01/frr01.clab.yml
+./containerlab/isis01/prepare.sh
+sudo clab deploy --topo ./containerlab/isis01/isis01.clab.yml
 ```   
 
 
-## How to connect IS-IS watcher to real network  
-Table below shows different options of possible setups, starting from the bare minimum in case of running Containerlab for testing and ending with maximum setup size with Watcher, Topolograph and ELK. Only a watcher installed from Topolograph's Monitoring page sends to Topolograph, which gives setup **№4**. A watcher set up by hand keeps text logs and feeds ELK, Zabbix, Loki and webhooks. 
-| № | Deployment size                                                                            | Number of compose files | Text file logs | View changes on network map | Zabbix/HTTP/Messengers notification | Searching events by any field any time |
-|---|--------------------------------------------------------------------------------------------|-------------------------|----------------|-----------------------------|-------------------------------------|----------------------------------------|
-| 1 | Bare minimum. Containerlab                                                                 |            0            |        ✅       |              ❌              |                  ❌                  |                    ❌                   |
-| 2 | Manual setup, no Topolograph, ELK **disabled** | 1 | ✅ | ❌ | ✅ | ❌ |
-| 3 | Manual setup, no Topolograph, ELK **enabled** | 2 | ✅ | ❌ | ✅ | ✅ |
-| 4 | Enterprise: installed from Topolograph's Monitoring page: Topolograph + **Fluent Bit** | 2 | ✅ | ✅ | HTTP / Webhook only | ❌ |
 
-#### Install from Topolograph's Monitoring page (Enterprise)
-1. Choose a Linux host with Docker, Docker Compose v2, [containerlab](https://containerlab.dev/install/), curl and git; GRE mode also needs iptables and conntrack.
-2. Launch your own Topolograph with [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or use the public https://topolograph.com.
-3. Open **Add → Watcher**, pick GRE or BGP-LS, fill in the form and run the two command blocks it shows on the host, as in [Quick start](#quick-start). Topolograph issues a token for this watcher only; Fluent Bit sends its events with that token.
-4. Configure the network device as in step 6 below.
+## Device configuration
 
-To add another watcher on the same host, repeat step 3: every watcher of the checkout is rebuilt from its own registration. To change answers or after **Rotate token**, run `configure.sh` again; when a newer version is out, the watcher page shows the update command.
-
-#### Moving a watcher installed by hand
-A watcher set up by hand does not reach Topolograph. To move it there:
-1. Stop it in its old checkout with `sudo containerlab destroy -t watcher/<watcher folder>/config.yml` and move that folder out of the checkout. Two GRE watchers towards one router from one host cannot run at the same time.
-2. Add it on the Monitoring page with the same answers and run the command the page shows.
-
-<details>
-<summary><b>Manual setup</b> without Topolograph (text logs, ELK, Zabbix, Loki, webhooks)</summary>
-
-#### Setup №2. Text logs, Zabbix, webhooks and Loki without Topolograph
-1. Choose a Linux host with Docker installed
-2. No Topolograph is needed: a watcher set up by hand keeps its events in local logs and the exporters below.
-
-> [!NOTE]
-> * `TEST_MODE` - if mode is `True`, a demo IS-IS events from static file will
->   be uploaded, not from FRR
-
-3. Setup ELK (skip it, it's only needed for setup № 3)  
-* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`.
-To create Index Templates, run:
-```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
-```
-
-To create Index Templates, run:
-```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
-```   
-* if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
-```
-xpack.license.self_generated.type: basic
-xpack.security.enabled: false
-```
-
-> [!TIP]
-> When the Elastic output plugin fails to connect to the ELK host, it blocks all
-> other outputs and ignores `EXPORT_TO_ELASTICSEARCH_BOOL` value from env file.
-> Regardless of `EXPORT_TO_ELASTICSEARCH_BOOL` being `False`, it tries to
-> connect to Elastic host. The solution - uncomment this portion of config in
-> case of having running ELK.
-
-4. Setup IS-IS Watcher
-```bash
-git clone https://github.com/Vadims06/isiswatcher.git
-cd isiswatcher
-cp .env.template .env
-```
-Generate configuration files  
-`vadims06/isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
-```
-sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action add_watcher
-```   
-The script will prompt you to choose a connection mode: **GRE** or **BGP-LS**.
-
-#### GRE Mode Setup
-When you select GRE mode, you'll see the following output:
-```
-+---------------------------+                                        
-|  Watcher Host             |                       +-------------------+
-|  +------------+           |                       | Network device    |
-|  | netns FRR  |           |                       |                   |
-|  |            Tunnel [4]  |                       | Tunnel [4]        |
-|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-isis1-gre1|       +-----+         | IS-IS area num [5]|
-|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
-|  |            |           |       +-----+         |                   |
-|  +------------+           |                       |                   |
-|                           |                       +-------------------+
-+---------------------------+                                        
-```
-The script will create:
-1. a folder under `watcher` folder with FRR configuration under `router` folder
-2. a containerlab configuration file with network settings
-3. an individual watcher log file in `watcher` folder.
-
-#### BGP-LS Mode Setup
-When you select BGP-LS mode, you'll see:
-```
-+-------------------------------+                                        
-|  Watcher Host                 |                       +-------------------+
-|  +-------------------+        |                       | Network Router    |
-|  | bgplswatcher[3][4]|        |                       |                   |
-|  | (GoBGP)           |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
-|  |      [gRPC]       |        |                       |    ^              |
-|  |        |          |        |                       |    |              |
-|  |        v          |        |                       | BGP-LS            |
-|  | isis-watcher      |        |                       |    ^              |
-|  | (Python)          |        |                       |    |              |
-|  |                   |        |                       | IS-IS [5]         |
-|  +-------------------+        |                       |                   |
-|                               |                       +-------------------+
-+-------------------------------+                                            
-```
-You'll be prompted for:
-- **[1] Router IP address (BGP peer)** - IP address of the router running BGP-LS
-- **[2] Router AS number** - AS number of the BGP-LS router
-- **[3] Watcher AS number** - AS number for the watcher
-- **[4] Watcher router-id** - Router ID for the watcher (IP address format)
-- **[5] IS-IS area number** - IS-IS area being monitored (format: 49.xxxx)
-- **[6] Passive mode** - Whether to use passive BGP mode (y/N)
-
-The script will create:
-1. a folder under `watcher` folder with bgplswatcher configuration
-2. a containerlab configuration file
-3. an individual watcher log file in `watcher` folder
-
-To stop IS-IS routes from being installed in the host's routing table, we the following policy has been applied on the watcher (GRE mode only):
-```bash
-# frr/config/isisd.conf
-route-map TO_KERNEL deny 200
-exit
-!
-ip protocol isis route-map TO_KERNEL
-```
-
-5. Start IS-IS Watcher  
-[Install](https://containerlab.srlinux.dev/install/) containerlab
-To start the watcher run the following command. `clab deploy` is like a `docker compose up -d` command   
-```
-sudo clab deploy --topo watcher/watcher<num>-gre<num>-isis/config.yml
-```
-For BGP-LS mode:
-```
-sudo clab deploy --topo watcher/watcher<num>-bgpls-isis/config.yml
-```
-
-**GRE Mode** will create:
-* Individual network namespace for Watcher and FRR
-* A pair of tap interfaces to connect the watcher to Linux host
-* GRE tunnel in Watcher's namespace
-* NAT settings for GRE traffic
-* FRR & Watcher instance
-* assign XDP IS-IS filter on watcher's tap interface (if enabled)
-
-**BGP-LS Mode** will create:
-* bgplswatcher (GoBGP) container for BGP-LS session
-* IS-IS watcher container connected via gRPC
-* Log rotation container
-
-</details>
-
-6. Configure Network Device
-
-#### For GRE Mode:
+### For GRE Mode:
 Setup GRE tunnel from the network device to the host with the Watcher. An example for Cisco:
 
 ```bash
@@ -341,7 +157,7 @@ isis network point-to-point
 ```
 It's needed to have a minimum one GRE tunnel to an area, which is needed to be monitored. If the IS-IS domain has multiple areas, setup one GRE in each area. It's a restriction of Link State architecture to know about new/old adjacency or link cost changes via LSPs per area basis only.
 
-#### For BGP-LS Mode:
+### For BGP-LS Mode:
 Configure the network router to advertise IS-IS topology via BGP-LS. The router must:
 - Support BGP-LS (BGP Link-State) protocol
 - Be configured to redistribute IS-IS topology into BGP-LS
@@ -380,173 +196,6 @@ set policy-options policy-statement isis2bgp term 1 then accept
 
 The watcher will connect to the router's BGP-LS peer IP address specified during configuration. 
 
-<details>
-<summary><b>Manual setup</b>, step 7</summary>
-
-7. Start log export to ELK, Zabbix, Loki or webhooks
-
-**Compose profiles (Logstash vs Fluent Bit):**  
-- **Logstash (ELK + index templates):** services use Compose profile `logstash`. Run:
-  ```bash
-  docker compose --profile logstash up -d
-  ```
-  (equivalent: `docker compose --profile logstash up -d isis-logstash isis-logstash-index-creator`).
-- **Fluent Bit only:** profile `fluentbit`. Run:
-  ```bash
-  docker compose --profile fluentbit up -d isis-fluentbit
-  ```
-  Pipeline definition: [`fluentbit/fluent-bit.yaml`](./fluentbit/fluent-bit.yaml). Logstash and Fluent Bit send HTTP payloads in different shapes; see **HTTP output: Logstash vs Fluent Bit** under *Versions*.
-
-</details>
-
-## Kibana settings
-1. **Index Templates** 
-Have been already created by `isis-logstash-index-creator` container in compose yaml file.
-Open `Management -> Stack Management -> Index Management ->[ Index Templates ]` to make sure that the following templates are in the list:
-* `isis-watcher-costs-changes`
-* `isis-watcher-temetric-changes`     
-* `isis-watcher-updown-events`
-![](docs/kibana_index_template.png)   
-2. **Index Pattern**
-Create indices with the same name as index templates
-Go to:
-old ELK `Stack Management/ Kibana/ Stack Management/ Index Pattern -> Create index pattern`
-new ELK 8.x `Management -> Stack Management -> Index Management -> [ Indices ]`
-then `Create index`
-* isis-watcher-costs-changes
-* isis-watcher-updown-events
-* isis-watcher-temetric-changes
-3. **Data View**
-Create data view for two event types.
-Go to `Management -> Stack Management -> Data Views`
-then `Create data view`
-```
-Name: isis-watcher-costs-changes
-Index pattern: isis-watcher-costs-changes
-Timestamp field: use watcher time
-```
-![](docs/kibana_data_view.png)   
-Repeat the same for `isis-watcher-updown-events` and for `isis-watcher-temetric-changes`
-As a result, there are two data views should be listed
-![](docs/kibana_data_view_list.png) 
-> Note
-What time to use @timestamp or watcher
-
-It's better to use `watcher` time, because connection between Watcher and  Logstash can be lost, but the watcher continues to log all topology changes with the correct time. When the connection is repaired, all logs will be added to ELK and you can check the time of the incident. If you choose `@timestamp` - the time of all logs will be the time of their addition to ELK.  
-
-
-4. **Additional checks**
-Make sure that:
-* `.env` has `EXPORT_TO_ELASTICSEARCH_BOOL=True`
-* `./logstash/pipeline/logstash.conf` has ELK uncommented
-
- ## Zabbix settings
- Zabbix settings are available here ```/docs/zabbix-ui```. There are 4 hosts and items (host and item inside each host has the same names) are required:
- * isis_neighbor_up_down
- * isis_network_up_down
- * isis_link_cost_change
- * isis_stub_network_cost_change
-
-## WebHook setting
-1. Create a Slack app
-2. Enable Incoming Webhooks
-3. Create an Incoming Webhook (generates URL)
-4. Uncomment `EXPORT_TO_WEBHOOK_URL_BOOL` in `.env`, set the URL to `WEBHOOK_URL`
-
-## Browse your topology changes logs
- Text logs are available here `isiswatcher/watcher/logs/`
- If Topolograph is installed, logs are available under `Real-Time Monitoring` tab
- If ELK is installed, logs are available here http://localhost:5601/ -> `Analytics/Discover` `watcher-updown-events`. 
-
-##### Logs sample 1  
-```
-2023-01-01T00:00:00Z,demo-watcher,1,host,0200.1001.0002,down,0200.1001.0003,01Jan2023_00h00m00s_7_hosts,49.0002,12345
-```
-
-* `2023-01-01T00:00:00Z` - event timestamp
-* `demo-watcher` - name of watcher
-* `1` - IS-IS level
-* `host` - event name: `host`, `network`, `metric`, `temetric`
-* `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
-* `down` - event status: `down`, `up`, `changed`
-* `0200.1001.0003` - event detected by this node.
-* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `49.0002` - area number
-* `12345` - AS number
-* `10.1.23.3` - Local IP address of detected node `0200.1001.0003` (available in 2.0.15)
-* `10.1.23.2` - Remote IP address relative to the detected node `0200.1001.0003` (available in 2.0.16)
-*Summary: `0200.1001.0003` on the interface with `10.1.23.3` IP address detected that `0200.1001.0002` host went down at `2023-01-01T00:00:00Z` in IS-IS level 1 in area 49.0002 in AS 12345*
-
-##### Logs sample 2  
-```
-2023-01-01T00:00:00Z,isis-watcher,2,metric,4ffe::192:168:23:2/127,changed,old_cost:10,new_cost:12,0200.1001.0002,stub,0200.1001.0002,01Jan2023_00h00m00s_7_hosts,49.0002,12345,external,1
-```
-
-* `2023-01-01T00:00:00Z` - event timestamp
-* `isis-watcher` - name of watcher
-* `2` - IS-IS level
-* `metric` - event name: `host`, `network`, `metric`, `temetric`
-* `4ffe::192:168:23:2/127` - event object. Watcher detected an event related to 4ffe::192:168:23:2/127` subnet
-* `changed` - event status: `down`, `up`, `changed`
-* `10` - old cost
-* `12` - new cost
-* `0200.1001.0002` - event detected by this node.
-* `stub` - subnet type
-* `0200.1001.0002` - since it's a stub network it has router id of terminated node.
-* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `49.0002` - area number
-* `12345` - AS number
-* `external` - subnet type internal|external
-* `1` - subnet ext type 1|2. 0 for internal subnets
-*Summary: `0200.1001.0002` detected that metric of `4ffe::192:168:23:2/127` stub network changed from `10` to `12` at `2023-01-01T00:00:00Z` in IS-IS level 2*
-
-##### Logs sample 3. TE  
-```
-2024-12-29T13:20:50.398Z,
-isis-watcher,1,temetric,0200.1001.0002,changed,0_17_19_20_21_22_26_29_30,1000000000,1000000000,1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056,11223344,0200.1001.0003,2024-07-28T18:03:05Z,49.0001,01Jan2023_00h00m00s_7_hosts,10.1.23.3,10.1.23.2
-
-* `2023-01-01T00:00:00Z` - event timestamp
-* `demo-watcher` - name of watcher
-* `1` - IS-IS level
-* `temetric` - event name: `host`, `network`, `metric`, `temetric`
-* `0200.1001.0002` - event object. Watcher detected an event related to `0200.1001.0002` host
-* `changed` - event status: `down`, `up`, `changed`
-* `0_17_19_20_21_22_26_29_30` - 0, 17, 19, 20, 21, 22, 26, 29, 30 admin groups
-* `1000000000` - Maximum Link Bandwidth (Sub-TLV 9) bits per sec
-* `1000000000` - Maximum Reservable Link Bandwidth (Sub-TLV 10) bits per sec
-* `1000000008_1000000016_1000000024_1000000032_1000000040_1000000048_1000000056` - Unreserved Bandwidth (Sub-TLV 11) for priority 0,..7 bits per sec
-* `11223344` - Traffic Engineering Default Metric (Sub-TLV 18)
-* `0200.1001.0003` - event detected by this node.
-* `01Jan2023_00h00m00s_7_hosts` - name of graph in Topolograph dashboard
-* `49.0002` - area number
-* `12345` - AS number
-* `10.1.23.3` - Local IP address of detected node `0200.1001.0003` (available in 2.0.15)
-* `10.1.23.2` - Remote IP address relative to the detected node `0200.1001.0003` (available in 2.0.16)
-```
-
-FRR configuration
-```
-interface eth1
- ip address 20.168.23.1/24
- ip router isis lab
- ipv6 address 4ffe::192:168:23:2/127
- ipv6 router isis lab
- isis network point-to-point
- link-params
-  admin-grp 0x647a0001
-  enable
-  metric 11223344
-  max-bw 1e+08
-  unrsv-bw 0 1.23e+06
-  unrsv-bw 5 1.23e+06
-!
-router isis lab
- net 49.0002.0200.1001.0002.00
- mpls-te on
- mpls-te router-address 10.10.10.2
-exit
-```
-
 ### Listen-only mode. XDP in action.
 If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  
 ![](./docs/xdp_behavior_with_two_subnets_on_frr.png)  
@@ -562,6 +211,7 @@ sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u roo
 ##### Support
 Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
 If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
+
 
 
 ## Troubleshooting
@@ -647,7 +297,7 @@ You should see tracked changes of your network, i.e.
     1. With Logstash: uncomment `DEBUG_BOOL="True"` in `.env` and run `docker logs -f isis-logstash`.
     2. Copy and paste the log from the first step in watcher's log file `./watcher/logs/watcher#-gre#-isis.isis.log`. With Logstash, `docker logs -f isis-logstash` should show the event; with Fluent Bit only, use `docker logs -f isis-fluentbit` if you need to debug the agent.
   
-3. For a watcher installed from the Monitoring page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher. A watcher set up by hand sends nothing to Topolograph.
+3. For a watcher installed from the Monitoring page, check that Topolograph accepted the event: the Fluent Bit container logs show no `401` or `403`. `401` means the watcher's token was rotated or revoked: run the command from its watcher page again. `403` means the event names a graph that does not belong to this watcher.
 
  ### Versions
  #### FRR
@@ -693,3 +343,5 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
 
  ### License
  The functionality was tested using Basic ELK license.  
+
+[Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
