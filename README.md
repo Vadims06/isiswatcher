@@ -2,8 +2,6 @@
 IS-IS Watcher streams IS-IS topology changes into Topolograph: every adjacency, cost and prefix change appears on the graph and on its timeline, grouped by level L1 and L2.
 
 > [!NOTE]
-> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
-
 ## What you see in Topolograph
 * **Monitoring** (top menu): events as a histogram by category over the period you pick, with the events table below.
 * **Events** tab of a graph: the same events on the timeline, grouped **By category** or **By router**. The graph highlights the routers and links of each event.
@@ -332,3 +330,5 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
  The functionality was tested using Basic ELK license.  
 
 [Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
+
+> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
