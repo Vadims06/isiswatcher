@@ -1,9 +1,18 @@
 # IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through either a specially established IS-IS adjacency (GRE mode) or by receiving BGP-LS updates from a network router (BGP-LS mode). The tool logs IS-IS events and/or export by Logstash to **Elastic Stack (ELK)**, **Zabbix**, **WebHooks** and **Topolograph** monitoring dashboard for keeping the history of events, alerting, instant notification. By encapsulating the solution's elements in containers, it becomes exceptionally quick to start.
 
+> [!NOTE]
+> Watchers that feed Topolograph are an **Enterprise** feature; Community Topolograph has no watchers. Editions and contact: https://topolograph.com/#editions.
+> A watcher set up by hand (text logs, ELK, Zabbix, Loki, webhooks) stays free and open source and sends nothing to Topolograph.
+
 ## Quick start
-1. In Topolograph open **Watchers → Add watcher → IS-IS Watcher**, pick the connection mode, fill in the form and copy the two command blocks it shows. Topolograph registers the watcher and puts its token into the command.
-2. Run them on a Docker host with containerlab:
+1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (IS-IS Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
+
+    ![Add watcher: choose type and mode](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/watcher-mode.png)
+
+    ![Add watcher: install command](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/watcher-install.png)
+
+2. Run the command on a Docker host with containerlab. It downloads `install.sh` pinned to a release tag, checks its SHA-256 and runs it with `--url`, `--token` and `--ref`; `install.sh` clones this repository into `/opt/topolograph/isiswatcher`, checks out the tag and starts `configure.sh`. The same steps by hand:
 
     ```bash
     # 1. Download
@@ -13,7 +22,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
     sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
     `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-isiswatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
-3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph.
+3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
 To run without Topolograph (text logs, ELK, Zabbix, Loki, webhooks), expand **Manual setup** in [How to connect IS-IS watcher to real network](#how-to-connect-is-is-watcher-to-real-network). A watcher set up by hand sends nothing to Topolograph; to move one there, see [Moving a watcher installed by hand](#moving-a-watcher-installed-by-hand).
 
@@ -94,10 +103,10 @@ Latest events about links with admin group **17** with unreserved bandwidth for 
 #### Full IS-IS TE log
 ![](./docs/kibana_discovery_te_log.png)
 
-#### Topolograph IS-IS Monitoring.
+#### Topolograph IS-IS Monitoring (Enterprise).
 Monitoring dashboard allows to see events on the timeline and on the topology. Red timelines show link (~adjacency) down events, green one - up link (~adjacency).  
 Events are grouped by IS-IS level (L1/L2). 
-![](./docs/topolograph_dashboard_with_l1_l2_events.png)  
+![Events in Topolograph](https://raw.githubusercontent.com/Vadims06/topolograph/master/docs/static/ui/events.png)  
 Here is a demo of checking events on Monitoring dashboard `./docs/isisdemo_with_topolograph_au.mp4`   
 
 ## Watcher Heartbeats
@@ -167,12 +176,12 @@ Table below shows different options of possible setups, starting from the bare m
 | 1 | Bare minimum. Containerlab                                                                 |            0            |        ✅       |              ❌              |                  ❌                  |                    ❌                   |
 | 2 | Manual setup, no Topolograph, ELK **disabled** | 1 | ✅ | ❌ | ✅ | ❌ |
 | 3 | Manual setup, no Topolograph, ELK **enabled** | 2 | ✅ | ❌ | ✅ | ✅ |
-| 4 | Installed from Topolograph's Watchers page: Topolograph + **Fluent Bit** | 2 | ✅ | ✅ | HTTP / Webhook only | ❌ |
+| 4 | Enterprise: installed from Topolograph's Watchers page: Topolograph + **Fluent Bit** | 2 | ✅ | ✅ | HTTP / Webhook only | ❌ |
 
-#### Install from Topolograph's Watchers page
+#### Install from Topolograph's Watchers page (Enterprise)
 1. Choose a Linux host with Docker, Docker Compose v2, [containerlab](https://containerlab.dev/install/), curl and git; GRE mode also needs iptables and conntrack.
 2. Launch your own Topolograph with [topolograph-docker](https://github.com/Vadims06/topolograph-docker) or use the public https://topolograph.com.
-3. Open **Watchers → Add watcher → IS-IS Watcher**, pick GRE or BGP-LS, fill in the form and run the two command blocks it shows on the host, as in [Quick start](#quick-start). Topolograph issues a token for this watcher only; Fluent Bit sends its events with that token.
+3. Open **Add → Watcher**, pick GRE or BGP-LS, fill in the form and run the two command blocks it shows on the host, as in [Quick start](#quick-start). Topolograph issues a token for this watcher only; Fluent Bit sends its events with that token.
 4. Configure the network device as in step 6 below.
 
 To add another watcher on the same host, repeat step 3: every watcher of the checkout is rebuilt from its own registration. To change answers or after **Rotate token**, run `configure.sh` again; when a newer version is out, the watcher page shows the update command.
