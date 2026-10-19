@@ -1,5 +1,5 @@
 # IS-IS Topology Watcher
-IS-IS Watcher streams IS-IS topology changes into Topolograph: every adjacency, cost and prefix change appears on the graph and on its timeline, grouped by level L1 and L2.
+IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It listens passively to the IS-IS control plane, either over its own IS-IS adjacency on a GRE tunnel (GRE mode) or through BGP-LS updates from a router (BGP-LS mode). It sends the topology and every change to **Topolograph**: each adjacency, cost and prefix change appears on the graph and on its timeline, with its level L1 or L2. Events can also be exported through Logstash to **ELK**, **Zabbix**, **Loki** and **webhooks**.
 
 ![IS-IS events on the graph and on the timeline in Topolograph](docs/ui/events-timeline.png)
 *Events on the graph and on the timeline: Graphs, open a graph, **Events** tab. The table shows the IS-IS level of each event.*
