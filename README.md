@@ -1,13 +1,24 @@
 # IS-IS Topology Watcher
 IS-IS Watcher streams IS-IS topology changes into Topolograph: every adjacency, cost and prefix change appears on the graph and on its timeline, grouped by level L1 and L2.
 
-> [!NOTE]
+![IS-IS events on the graph and on the timeline in Topolograph](docs/ui/events-timeline.png)
+*Events on the graph and on the timeline: Graphs, open a graph, **Events** tab. The table shows the IS-IS level of each event.*
+
 ## What you see in Topolograph
-* **Monitoring** (top menu): events as a histogram by category over the period you pick, with the events table below.
-* **Events** tab of a graph: the same events on the timeline, grouped **By category** or **By router**. The graph highlights the routers and links of each event.
-* **Event search**: the events table filtered by router, event type (adjacency, metric, network) and period.
-* **Click an event** to open the graph as it was at that moment. **Back to live** returns to the current graph.
-* IS-IS events carry the level (L1 or L2) and TE metric changes.
+**Monitoring.** Events as a histogram by category over the period you pick, with the events table below (here: the 13-router demo, L2 events of pe14, pe15 and core31 and an L1 metric change between core30 and core31). Open **Monitoring** in the top menu. Routers are listed by their IS-IS system ID.
+![Monitoring page: event histogram and events table](docs/ui/monitoring-histogram.png)
+
+**Events by router.** The same period grouped by the router that detected the change. In a graph, open the **Events** tab and choose **By router**.
+![Events by router](docs/ui/events-by-router.png)
+
+**Event search.** The events table filtered by router, event type and period. On the **Monitoring** page here: router `1230.1501.5015` (pe15), adjacency down events, a chosen period.
+![Event search: router, event type and period filters](docs/ui/event-search.png)
+
+**The graph at the moment of an event.** Click an event in the **Events** tab to open the graph as it was at that time. After the L2 adjacency down event (pe15, core110) the link between them is drawn as down. **Back to live** returns to the current graph.
+![Graph at the time of an adjacency down event](docs/ui/graph-at-event.png)
+
+**A metric change on the graph.** The selected event row (pe14, core110, 10 → 14 on L2) is in the **Events** tab and the changed link is highlighted on the graph.
+![Link metric change highlighted on the graph](docs/ui/cost-change-on-graph.png)
 
 ## Quick start
 1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (IS-IS Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
