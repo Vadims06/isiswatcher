@@ -2,6 +2,8 @@
 
 A watcher writes its events to text logs. Logstash or Fluent Bit can pass them on. This page covers Kibana, Zabbix, Slack and other webhooks, Loki, and the manual setup of a watcher by hand.
 
+The ELK integration was tested with the Basic ELK license.
+
 ## Discovering IS-IS logs in Kibana. Examples
 ### Cost attribute, metric
 IS-IS cost changes on links  

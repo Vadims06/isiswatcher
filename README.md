@@ -216,8 +216,9 @@ The watcher will connect to the router's BGP-LS peer IP address specified during
 
 ### Listen-only mode. Announcement filter in action.
 If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  
-![](./docs/xdp_behavior_with_two_subnets_on_frr.png)  
-This example shows that the `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by the filter and eventually didn't reach the network.
+![The watcher's FRR sends into gre1; the announcement filter on gre1 egress passes only the allowed IS-IS PDUs](./docs/announcement_filter_architecture.svg)  
+![The watcher's own LSP reaches the device; an LSP with 8.8.8.8/32 or another router's LSP is dropped](./docs/announcement_filter_in_action.svg)  
+If `8.8.8.8/32` is redistributed on the watcher and added to its LSP, the filter drops that LSP and the network never learns the prefix.
 
 What leaves `gre1`:
 
@@ -362,7 +363,7 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
 * admin at topolograph.com
 
  ### License
- The functionality was tested using Basic ELK license.  
+ See [LICENSE](LICENSE).
 
 [Other exports (ELK, Zabbix, Loki, webhooks)](docs/exporters.md)
 
