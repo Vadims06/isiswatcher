@@ -260,11 +260,12 @@ Network changes are not tracked: the watcher log `watcher/logs/watcher<num>-...l
 ##### Steps:
 
 **For GRE Mode:**
-1. Run diagnostic script. It will check **IS-IS Watcher** <-> **Network device** connection (iptables, packets from FRR/network device)
+1. Run the diagnostic. It checks the **IS-IS Watcher** <-> **Network device** connection: GRE and IS-IS hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path. For a rule that is wrong it prints the command to fix it.
 
     ```
-    cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action diagnostic --watcher_num <num>
-    ``` 
+    cd /opt/topolograph/isiswatcher && sudo onboarding/diagnostic.sh <num>
+    ```
+    The script passes `iptables-save -c` to `docker run -i --rm -v ./:/home/watcher/watcher/ --network host vadims06/isis-watcher:$(cat VERSION) diagnostic --watcher_num <num> --iptables-save -`.
 2. Login on FRR, check adjancency:   
     ```
     sudo docker exec -it watcher<num>-gre<num>-isis-router vtysh
