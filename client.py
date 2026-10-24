@@ -28,8 +28,8 @@ ruamel_yaml_default_mode.width = 2048  # type: ignore
 class ACTIONS(enum.Enum):
     ADD_WATCHER = "add_watcher"
     DIAGNOSTIC = "diagnostic"
-    ENABLE_XDP = "enable_xdp"
-    DISABLE_XDP = "disable_xdp"
+    ENABLE_FILTER = "enable_filter"
+    DISABLE_FILTER = "disable_filter"
     PRINT_GRE_CLEANUP = "print_gre_cleanup"
     PRINT_IMAGES = "print_images"
 
@@ -52,10 +52,10 @@ class WATCHER_CONFIG:
     WATCHER_TEMPLATE_FOLDER_NAME = "watcher-template"
     WATCHER_CONFIG_FILE = "config.yml"
     ROUTER_NODE_NAME = "router"
-    ROUTER_ISIS_SYSTEMID = "{area_num}.{watcher_num}.{gre_num}.1111.00"
+    ISIS_SYSTEM_ID = "{watcher_num}.{gre_num}.1111"
+    ROUTER_ISIS_SYSTEMID = "{area_num}." + ISIS_SYSTEM_ID + ".00"
     WATCHER_NODE_NAME = "isis-watcher"
     ISIS_FILTER_NODE_NAME = "receive_only_filter"
-    ISIS_FILTER_NODE_IMAGE = "vadims06/isis-filter-xdp:latest"
     LOGROTATION_NODE_NAME = "logrotation"
     LOGROTATION_IMAGE = "vadims06/docker-logrotate:v1.0.0"
     BGPLSWATCHER_NODE_NAME = "bgplswatcher"
@@ -66,6 +66,7 @@ class WATCHER_CONFIG:
         BGPLSWATCHER_NODE_NAME: "vadims06/bgplswatcher:v1.0.4",
         LOGROTATION_NODE_NAME: LOGROTATION_IMAGE,
         ROUTER_NODE_NAME: "vadims06/frr:v8.5.4_isis_over_gre",
+        ISIS_FILTER_NODE_NAME: "vadims06/isis-filter:v1",
     }
 
     def __init__(self, watcher_num, protocol="isis"):
@@ -83,7 +84,7 @@ class WATCHER_CONFIG:
         self.organisation_name = ""
         self._host_veth = ""
         self.watcher_name = ""
-        self.enable_xdp = False
+        self.enable_filter = True
         # BGP-LS specific attributes
         self.bgpls_router_ip = ""
         self.bgpls_router_as = 0
@@ -182,6 +183,35 @@ class WATCHER_CONFIG:
     @host_veth.setter
     def host_veth(self, value_from_yaml_import):
         self._host_veth = value_from_yaml_import
+
+    @property
+    def isis_system_id(self) -> str:
+        return self.ISIS_SYSTEM_ID.format(
+            watcher_num=str(self.watcher_num).zfill(4), gre_num=str(self.gre_tunnel_number).zfill(4))
+
+    def get_filter_env(self) -> dict:
+        """The filter lets out only this system's LSP, with the tunnel subnet as its one prefix."""
+        tunnel_network = ipaddress.ip_interface(self.gre_tunnel_ip_w_mask_watcher).network
+        return {
+            'WATCHER_SYSTEM_ID': self.isis_system_id,
+            'TUNNEL_NETWORK': str(tunnel_network.network_address),
+            'TUNNEL_PREFIX_LEN': str(tunnel_network.prefixlen),
+        }
+
+    def set_filter_nodes(self, config_yml):
+        """The filter node brings gre1 up once attached, so without it h2 does."""
+        nodes = config_yml['topology']['nodes']
+        template_nodes = self.watcher_config_template_yml['topology']['nodes']
+        if self.enable_filter:
+            nodes[self.ISIS_FILTER_NODE_NAME] = copy.deepcopy(template_nodes[self.ISIS_FILTER_NODE_NAME])
+            nodes[self.ISIS_FILTER_NODE_NAME]['image'] = self.PINNED_IMAGES[self.ISIS_FILTER_NODE_NAME]
+            nodes[self.ISIS_FILTER_NODE_NAME]['env'] = self.get_filter_env()
+            nodes.pop('h2', None)
+            return
+        nodes.pop(self.ISIS_FILTER_NODE_NAME, None)
+        nodes['h2'] = copy.deepcopy(template_nodes['h2'])
+        nodes['h2']['stages']['create']['wait-for'] = [{'node': 'h1', 'stage': 'create'}]
+        nodes['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
 
     @property
     def watcher_root_folder_path(self):
@@ -409,18 +439,7 @@ class WATCHER_CONFIG:
         # Logrotation
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME]['image'] = self.LOGROTATION_IMAGE
         watcher_config_yml['topology']['nodes'][self.LOGROTATION_NODE_NAME].setdefault('binds', []).append(f"../logs/{self.watcher_log_file_name}:/logs/watcher.log")
-        # IS-IS XDP filter, listen only
-        if self.enable_xdp:
-            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
-            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
-            watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
-        else:
-            del watcher_config_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]
-            for d in watcher_config_yml['topology']['nodes']['h2']['stages']['create']['wait-for']:
-                if d.get("node") == self.ISIS_FILTER_NODE_NAME:
-                    d['node'] = 'h1'
-        # Enable GRE after XDP filter
-        watcher_config_yml['topology']['nodes']['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+        self.set_filter_nodes(watcher_config_yml)
         self._do_save_watcher_config_file(watcher_config_yml)
 
     def create_folder_with_settings_bgpls(self):
@@ -689,17 +708,14 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
-        self.enable_xdp = None
-        while self.enable_xdp is None:
-            enable_xdp_reply = input("Enable XDP? [y/N] ")
-            if not enable_xdp_reply:
-                self.enable_xdp = False
-            else:
-                if enable_xdp_reply.lower().strip() == 'y':
-                    self.enable_xdp = True
-                elif enable_xdp_reply.lower().strip() == 'n':
-                    self.enable_xdp = False
-    
+        self.enable_filter = None
+        while self.enable_filter is None:
+            enable_filter_reply = input("Enable announcement filter? [Y/n] ").lower().strip()
+            if enable_filter_reply in ("", "y"):
+                self.enable_filter = True
+            elif enable_filter_reply == "n":
+                self.enable_filter = False
+
     @property
     def gre_rule_owner(self):
         """Per watcher, so stopping one never deletes an identical rule of a sibling that shares the router."""
@@ -716,9 +732,8 @@ class WATCHER_CONFIG:
             f'bash -c \'RULE="-t nat -p gre {self.gre_rule_owner} -s {self.gre_tunnel_network_device_ip} -d {self.host_interface_device_ip} -j DNAT --to-destination {self.p2p_veth_watcher_ip}"; sudo iptables -C PREROUTING $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A PREROUTING $$RULE\'',
             f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.p2p_veth_watcher_ip} -d {self.gre_tunnel_network_device_ip} -i {self.host_veth} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
             f'bash -c \'RULE="-t filter -p gre {self.gre_rule_owner} -s {self.gre_tunnel_network_device_ip} -j ACCEPT"; sudo iptables -C FORWARD $$RULE &> /dev/null && echo "Rule exists in iptables." || sudo iptables -A FORWARD $$RULE\'',
-            f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev veth1', # for xdp
-            # enable GRE after applying XDP filter
-            #f'sudo ip netns exec {self.netns_name} ip link set up dev gre1',
+            # gre1 is 24 bytes smaller than veth1 and FRR needs 1497 on it for its LSP size
+            f'sudo ip netns exec {self.netns_name} ip link set mtu 1600 dev veth1',
             f'sudo ip link set mtu 1600 dev {self.host_veth}',
             f'sudo conntrack -D --dst {self.gre_tunnel_network_device_ip} -p 47',
             f'sudo conntrack -D --src {self.gre_tunnel_network_device_ip} -p 47',
@@ -968,8 +983,8 @@ class WATCHER_CONFIG:
         watcher_obj.run_command(args.action)
 
     def run_command(self, action):
-        method = getattr(self, action)
-        return method()
+        # The class attribute: an instance attribute such as enable_filter would shadow the action
+        return getattr(type(self), action)(self)
 
     def add_watcher(self):
         print("Manual setup keeps events in local logs and the exporters set in .env (ELK, Zabbix, Loki, webhooks). "
@@ -1023,38 +1038,29 @@ class WATCHER_CONFIG:
             if not is_passed:
                 diagnostic.IPTABLES_REMOTE_NETWORK_DEVICE_NAT_TO_FRR_NETNS.check(self.gre_tunnel_network_device_ip)
 
-    def enable_xdp(self):
-        self.import_from(watcher_num=args.watcher_num)
+    def enable_filter(self):
+        self.set_filter_in_config(True)
+        print("Announcement filter enabled")
+
+    def disable_filter(self):
+        self.set_filter_in_config(False)
+        print("Announcement filter disabled")
+
+    def set_filter_in_config(self, is_enabled):
+        self.import_from(watcher_num=self.watcher_num)
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
-            raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        current_clab_config['topology']['nodes'].setdefault(self.ISIS_FILTER_NODE_NAME, dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]) )
-        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['image'] = self.ISIS_FILTER_NODE_IMAGE
-        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['network-mode'] = "host"
-        current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]['env']['VTAP_HOST_INTERFACE'] = self.host_veth
-
-        current_clab_config['topology']['nodes']['h2'].setdefault('stages', dict()).update( copy.deepcopy(self.watcher_config_template_yml['topology']['nodes']['h2']['stages']) )
+            raise ValueError(f"config file for watcher #{self.watcher_num} was not found")
+        self.enable_filter = is_enabled
+        self.set_filter_nodes(current_clab_config)
         self._do_save_watcher_config_file(current_clab_config)
-        print("XDP enabled")
-
-    def disable_xdp(self):
-        self.import_from(watcher_num=args.watcher_num)
-        current_clab_config = self.watcher_config_file_yml
-        if not current_clab_config:
-            raise ValueError(f"config file for watcher #{args.watcher_num} was not found")
-        del current_clab_config['topology']['nodes'][self.ISIS_FILTER_NODE_NAME]
-        for d in current_clab_config['topology']['nodes']['h2']['stages']['create']['wait-for']:
-            if d.get("node") == self.ISIS_FILTER_NODE_NAME:
-                d['node'] = 'h1'
-        self._do_save_watcher_config_file(current_clab_config)
-        print("XDP disabled")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description="Provisioning Watcher instances for tracking IS-IS topology changes"
     )
     parser.add_argument(
-        "--action", required=True, help="Options: add_watcher, enable_xdp, disable_xdp, diagnostic"
+        "--action", required=True, help="Options: add_watcher, enable_filter, disable_filter, diagnostic"
     )
     parser.add_argument(
         "--watcher_num", required=False, default=0, type=int, help="Number of watcher"

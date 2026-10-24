@@ -61,13 +61,17 @@ topology:
               stage: create
     receive_only_filter:
       kind: linux
-      image: vadims06/isis-filter-xdp:latest
+      image: vadims06/isis-filter:v1
       startup-delay: 2
-      network-mode: host
-      # one-shot node: it applies the XDP filter and exits, so it must not be restarted
+      # in the FRR namespace: gre1 is there, and the host network stays out of reach
+      network-mode: container:router
+      # one-shot node: it attaches the announcement filter, brings gre1 up and exits, so it must not be restarted
       restart-policy: "no"
+      cap-add: [NET_ADMIN, BPF, PERFMON]
       env:
-        VTAP_HOST_INTERFACE: vhost1025
+        WATCHER_SYSTEM_ID: "0001.1025.1111"
+        TUNNEL_NETWORK: 10.10.25.0
+        TUNNEL_PREFIX_LEN: "24"
       stages:
         create:
           wait-for:
@@ -80,7 +84,7 @@ topology:
       stages:
         create:
           wait-for:
-            - node: receive_only_filter
+            - node: h1
               stage: create
 
   links:
