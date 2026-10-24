@@ -86,8 +86,14 @@ def make_icmp():
     return bytes.fromhex("450000540000400040010000" "0a0a1921" "0a0a1920" "0800f7ff00010001")
 
 
-# (name, packet, verdict, counter that must grow). The OSPF-found defect classes are marked.
+# The L2 LSP FRR 8.5.4 sent on gre1, as tcpdump on the tunnel recorded it
+FRR_CAPTURED_LSP = bytes.fromhex(
+    "831b0100140100000058048c000210251111000000000005c4e8038102cc8e010403490001890777617463686572"
+    "f205c0a84d01008604c0a84d01160b0000000000020000000a008404c0a84d0187080000000a180a0a19")
+
+# (name, packet, verdict, counter that must grow). Bracketed names a defect class of the previous XDP filter.
 CASES = [
+    ("own L2 LSP captured from FRR on gre1", FRR_CAPTURED_LSP, PASS, "lsp_passed"),
     ("own L2 LSP as FRR emits it", make_lsp(FRR_TLVS), PASS, "lsp_passed"),
     ("own L1 LSP with ATT bit", make_lsp(FRR_TLVS, pdu_type=LSP_L1, flags=0x08), PASS, "lsp_passed"),
     ("own LSP with no TLVs (header-only, purge) [over-strict header-only rule]", make_lsp(), PASS, "lsp_passed"),

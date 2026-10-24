@@ -27,3 +27,5 @@ clang -O2 -target bpf -c /opt/isis-filter/isis_filter.c -o "$object" \
     tc qdisc replace dev "$interface" clsact &&
     tc filter replace dev "$interface" egress pref 1 handle 1 bpf direct-action obj "$object" sec classifier
 } 2>"$log" || { cat "$log" >&2; exit 1; }
+# Up only now, so no packet leaves the tunnel before the filter is on it
+ip link set up dev "$interface"
