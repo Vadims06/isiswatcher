@@ -44,7 +44,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
     # 2. Configure and run
     sudo ./configure.sh --url <topolograph-url> --token <watcher-token>
     ```
-    `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with `client.py --answers` and starts it from the `topolograph-isiswatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
+    `configure.sh` checks Docker, Docker Compose, containerlab, curl, git, systemd and root, fetches your answers from Topolograph, builds the watcher with the image's `render --answers` and starts it from the `topolograph-isiswatcher` systemd service, which brings the watchers back after a reboot. All watchers of one checkout share its version: `configure.sh` rebuilds each of them from its own registration.
 3. Configure the router as the watcher page shows. The page shows when the command ran, when data arrived and a link to the graph; once data arrives the watcher shows "Connected".
 
 No events on the dashboard? Start with [Troubleshooting](#troubleshooting).
@@ -239,12 +239,11 @@ sudo ip netns exec <netns> tc filter show dev gre1 egress        # shows "id <pr
 sudo bpftool prog show id <program id>                            # shows "map_ids <ids>"
 sudo bpftool map dump id <id>                                     # the map with 7 entries: lsp_passed, truncated, unknown_pdu, foreign_lsp, malformed_tlv, neighbor, prefix
 ```
-To enable/disable the filter of a watcher, then redeploy it
+To enable/disable the filter of a watcher, set `is_filter_enabled` in its answers (on its Topolograph page, or in your answers file), run `configure.sh` or `render` again, then redeploy it
 ```
-cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action enable_filter --watcher_num <num>
 sudo containerlab deploy --reconfigure -t watcher/<watcher folder>/config.yml
 ```
-Use `--action disable_filter` to switch it off. Without the filter node the lab node `h2` brings `gre1` up.
+Without the filter node the lab node `h2` brings `gre1` up.
 
 To run the filter tests (they load the program into the host kernel from a privileged container): `filter/test/run.sh`.
 
@@ -350,7 +349,7 @@ FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over 
  ```
  sudo docker/alpine/build.sh
  ```
- 4. Inspect your new FRR image name using `docker image ls` and replace `router/image` by your own image name in `isiswatcher/watcher/watcher-template/config.yml`
+ 4. Inspect your new FRR image name using `docker image ls` and replace `{{image_router}}` by your own image name in `isiswatcher/watcher/watcher-template/config.gre.template`
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)

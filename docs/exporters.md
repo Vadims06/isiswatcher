@@ -79,15 +79,19 @@ Table below shows different options of possible setups, starting from the bare m
 >   be uploaded, not from FRR
 
 3. Setup ELK (skip it, it's only needed for setup № 3)  
-* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because `create.py` script doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `isiswatcher/logstash/index_template/create.py`.
+* if you already have ELK instance running, fill `ELASTIC_IP` in env file and uncomment Elastic config here `isiswatcher/logstash/pipeline/logstash.conf`. Currently additional manual configuration is needed for Index Templates creation, because the index-creator service doesn't accept the certificate of ELK. It's needed to have one in case of security setting enabled. Required mapping for the Index Template is in `logstash/index_template/*.json`.
 To create Index Templates, run:
 ```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
+for template in logstash/index_template/*.json; do
+  curl -u elastic:changeme -H 'Content-Type: application/json' -X PUT --data-binary "@$template" "http://<ELASTIC_IP>:9200/_index_template/$(basename "$template" .json)"
+done
 ```
 
 To create Index Templates, run:
 ```
-sudo docker run -it --rm --env-file=./.env -v ./logstash/index_template/create.py:/home/watcher/watcher/create.py vadims06/isis-watcher:latest python3 ./create.py
+for template in logstash/index_template/*.json; do
+  curl -u elastic:changeme -H 'Content-Type: application/json' -X PUT --data-binary "@$template" "http://<ELASTIC_IP>:9200/_index_template/$(basename "$template" .json)"
+done
 ```   
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
 ```
@@ -109,63 +113,65 @@ cd isiswatcher
 cp .env.template .env
 ```
 Generate configuration files  
-`vadims06/isis-watcher:v1.1` includes a client for generating configurations for each Watcher for each IS-IS area. To generate individual settings - run the client with `--action add_watcher`   
+The watcher image builds the watcher folders from an answers file and asks no questions. Write `answers.json` from the templates below and run:
 ```
-sudo docker run -it --rm --user $UID -v ./:/home/watcher/watcher/ -v /etc/passwd:/etc/passwd:ro -v /etc/group:/etc/group:ro vadims06/isis-watcher:latest python3 ./client.py --action add_watcher
-```   
-The script will prompt you to choose a connection mode: **GRE** or **BGP-LS**.
+sudo docker run --rm --user 0:0 -v ./:/home/watcher/watcher -w /home/watcher/watcher vadims06/isis-watcher:$(cat VERSION) render --answers answers.json
+```
+Topolograph Enterprise writes the same file for you on the Watchers page. `render` is safe to run again: a watcher whose answers did not change keeps its folder byte for byte, and one whose answers changed is rebuilt in place (stop and redeploy its lab afterwards). `docker run ... print-images` instead of `render --answers ...` lists the images a watcher pins.
 
-### GRE Mode Setup
-When you select GRE mode, you'll see the following output:
+GRE mode, with the explanation of each field (JSON has no comments, so they follow the template):
+```json
+{
+  "watcher_id": "lab1",
+  "name": "isis-lab-1",
+  "connection_mode": "gre",
+  "answers": {
+    "gre_tunnel_network_device_ip": "172.31.50.2",
+    "gre_tunnel_ip_w_mask_network_device": "10.10.25.32/24",
+    "gre_tunnel_ip_w_mask_watcher": "10.10.25.33/24",
+    "gre_tunnel_number": "1025",
+    "isis_area_num": "49.0001",
+    "host_interface_device_ip": "192.168.0.140",
+    "is_filter_enabled": "true",
+    "organisation_name": "my-org",
+    "asn": "65001"
+  }
+}
 ```
-+---------------------------+                                        
-|  Watcher Host             |                       +-------------------+
-|  +------------+           |                       | Network device    |
-|  | netns FRR  |           |                       |                   |
-|  |            Tunnel [4]  |                       | Tunnel [4]        |
-|  |  gre1   [3]TunnelIP----+-----------------------+[2]TunnelIP        |
-|  |  eth1------+-isis1-gre1|       +-----+         | IS-IS area num [5]|
-|  |            | Host IP[6]+-------+ LAN |--------[1]Device IP         |
-|  |            |           |       +-----+         |                   |
-|  +------------+           |                       |                   |
-|                           |                       +-------------------+
-+---------------------------+                                        
+BGP-LS mode:
+```json
+{
+  "watcher_id": "lab2",
+  "name": "isis-lab-2",
+  "connection_mode": "bgpls",
+  "answers": {
+    "bgpls_router_ip": "192.0.2.1",
+    "bgpls_router_as": "65000",
+    "bgpls_watcher_as": "65001",
+    "bgpls_router_id": "192.0.2.9",
+    "isis_area_num": "49.0001",
+    "bgpls_passive_mode": "false",
+    "organisation_name": "my-org",
+    "asn": "65001"
+  }
+}
 ```
-The script will create:
-1. a folder under `watcher` folder with FRR configuration under `router` folder
+* `watcher_id` - any unique id you choose: 1 to 64 letters, digits, `.`, `_` or `-`. A watcher is found again by it, so keep it when you change the answers.
+* `name` - the watcher's name in messages and log lines.
+* `connection_mode` - `gre` or `bgpls`.
+* `gre_tunnel_network_device_ip` - the router's own IPv4 address the GRE tunnel ends on; `host_interface_device_ip` - this host's IPv4 address the router sends GRE to. They must differ.
+* `gre_tunnel_ip_w_mask_network_device` and `gre_tunnel_ip_w_mask_watcher` - the two tunnel addresses with their mask; they must be in one network and differ from each other and from the two outer addresses.
+* `gre_tunnel_number` - a positive number that names the host-side interface (`isis<watcher number>-gre<tunnel number>`, at most 15 characters).
+* `isis_area_num` - the area, `49.` and four digits, such as `49.0001`.
+* `is_filter_enabled` - `true` attaches the announcement filter, `false` leaves the tunnel unfiltered. Change it and run `render` again to switch.
+* `bgpls_router_ip`, `bgpls_router_as`, `bgpls_watcher_as`, `bgpls_router_id` - the BGP peer and the watcher's AS and router id; different AS numbers make the session eBGP with multihop TTL 255. `bgpls_passive_mode` - `true` waits for the router to connect, and only one passive BGP-LS watcher fits a host (port 179).
+* `organisation_name`, `asn` - labels that go to the event logs.
+* Without a `server` block events stay in the local logs and the exporters set in `.env`. Topolograph's own answers add `server` (`topolograph_host`, `topolograph_port`, `topolograph_tls`, `watcher_token`) and `siblings`; a hand-written file needs neither.
+
+`render` creates:
+1. a folder under `watcher` folder with FRR configuration under `router` folder (GRE) or the `bgplswatcher` configuration (BGP-LS)
 2. a containerlab configuration file with network settings
-3. an individual watcher log file in `watcher` folder.
-
-### BGP-LS Mode Setup
-When you select BGP-LS mode, you'll see:
-```
-+-------------------------------+                                        
-|  Watcher Host                 |                       +-------------------+
-|  +-------------------+        |                       | Network Router    |
-|  | bgplswatcher[3][4]|        |                       |                   |
-|  | (GoBGP)           |<-------+BGP Session [1][2]---+ | BGP Session [1][2]|
-|  |      [gRPC]       |        |                       |    ^              |
-|  |        |          |        |                       |    |              |
-|  |        v          |        |                       | BGP-LS            |
-|  | isis-watcher      |        |                       |    ^              |
-|  | (Python)          |        |                       |    |              |
-|  |                   |        |                       | IS-IS [5]         |
-|  +-------------------+        |                       |                   |
-|                               |                       +-------------------+
-+-------------------------------+                                            
-```
-You'll be prompted for:
-- **[1] Router IP address (BGP peer)** - IP address of the router running BGP-LS
-- **[2] Router AS number** - AS number of the BGP-LS router
-- **[3] Watcher AS number** - AS number for the watcher
-- **[4] Watcher router-id** - Router ID for the watcher (IP address format)
-- **[5] IS-IS area number** - IS-IS area being monitored (format: 49.xxxx)
-- **[6] Passive mode** - Whether to use passive BGP mode (y/N)
-
-The script will create:
-1. a folder under `watcher` folder with bgplswatcher configuration
-2. a containerlab configuration file
-3. an individual watcher log file in `watcher` folder
+3. an individual watcher log file in `watcher/logs`.
 
 To stop IS-IS routes from being installed in the host's routing table, we the following policy has been applied on the watcher (GRE mode only):
 ```bash
