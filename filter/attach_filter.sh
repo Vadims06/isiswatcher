@@ -4,7 +4,7 @@ set -eu
 
 : "${WATCHER_SYSTEM_ID:?}" "${TUNNEL_NETWORK:?}" "${TUNNEL_PREFIX_LEN:?}"
 interface=${FILTER_INTERFACE:-gre1}
-object=/tmp/isis_filter.o
+object=/tmp/announcement_filter.o
 log=/tmp/attach.log
 
 # Another node creates the tunnel; an absent one must fail the deploy, not leave the watcher unfiltered
@@ -20,7 +20,7 @@ $TUNNEL_NETWORK
 EOT
 tunnel_network=$(printf '0x%02x%02x%02x%02xU' "$octet1" "$octet2" "$octet3" "$octet4")
 
-clang -O2 -target bpf -c /opt/isis-filter/isis_filter.c -o "$object" \
+clang -O2 -target bpf -c /opt/isis-filter/announcement_filter.c -o "$object" \
     -DWATCHER_SYSTEM_ID_BYTES="$system_id_bytes" -DTUNNEL_NETWORK="$tunnel_network" -DTUNNEL_PREFIX_LEN="$TUNNEL_PREFIX_LEN"
 # tc warns about a missing bpf filesystem, which the filter does not need
 {

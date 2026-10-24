@@ -84,7 +84,7 @@ class WATCHER_CONFIG:
         self.organisation_name = ""
         self._host_veth = ""
         self.watcher_name = ""
-        self.is_filter_enabled = True
+        self.is_filter_enabled = False
         # BGP-LS specific attributes
         self.bgpls_router_ip = ""
         self.bgpls_router_as = 0
@@ -710,10 +710,10 @@ class WATCHER_CONFIG:
             self.watcher_name = "isiswatcher-demo"
         self.is_filter_enabled = None
         while self.is_filter_enabled is None:
-            enable_filter_reply = input("Enable announcement filter? [Y/n] ").lower().strip()
-            if enable_filter_reply in ("", "y"):
+            enable_filter_reply = input("Enable announcement filter? [y/N] ").lower().strip()
+            if enable_filter_reply == "y":
                 self.is_filter_enabled = True
-            elif enable_filter_reply == "n":
+            elif enable_filter_reply in ("", "n"):
                 self.is_filter_enabled = False
 
     @property

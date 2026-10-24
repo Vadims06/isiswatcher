@@ -230,7 +230,7 @@ What leaves `gre1`:
 
 Known limit: the watcher never sends other systems' LSPs, so a device that has just rebooted gets nothing from it except the watcher's own LSP; it learns the topology from its other neighbours.
 
-The filter node `receive_only_filter` runs once in the FRR network namespace (capabilities `NET_ADMIN`, `BPF`, `PERFMON`, Linux 5.4 or newer), attaches the program and brings `gre1` up, so nothing leaves the tunnel before the filter is on it. If it fails, `gre1` stays down.
+The filter node `receive_only_filter` runs once in the FRR network namespace, attaches the program and brings `gre1` up, so nothing leaves the tunnel before the filter is on it. If it fails, `gre1` stays down. The filter is off by default. It needs Linux kernel 5.4 or newer and was tested on 5.15.
 
 To check that the filter is attached and what it dropped
 ```
@@ -245,7 +245,7 @@ sudo containerlab deploy --reconfigure -t watcher/<watcher folder>/config.yml
 ```
 Use `--action disable_filter` to switch it off. Without the filter node the lab node `h2` brings `gre1` up.
 
-To run the filter tests (they load the program into the host kernel from a privileged container): `filter/tests/run.sh`.
+To run the filter tests (they load the program into the host kernel from a privileged container): `filter/test/run.sh`.
 
 ## Troubleshooting
 Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): it shows which step is missing: the install command ran, data arrived, the graph exists.

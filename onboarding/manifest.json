@@ -150,7 +150,7 @@
       "label": "Announcement filter: only the watcher's own LSP leaves the tunnel",
       "type": "boolean",
       "source": "default",
-      "default": true,
+      "default": false,
       "modes": [
         "gre"
       ],

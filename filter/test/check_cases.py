@@ -153,7 +153,7 @@ def attach_filter():
     run(["ip", "link", "set", INTERFACE, "up"])
     environment = dict(os.environ, WATCHER_SYSTEM_ID=WATCHER_SYSTEM_ID, TUNNEL_NETWORK=TUNNEL_NETWORK,
                        TUNNEL_PREFIX_LEN=TUNNEL_PREFIX_LEN)
-    run(["/opt/isis-filter/attach.sh"], env=environment)
+    run(["/opt/isis-filter/attach_filter.sh"], env=environment)
     program_id = re.search(r"\bid (\d+)", run(["tc", "filter", "show", "dev", INTERFACE, "egress"])).group(1)
     map_ids = re.search(r"map_ids ([\d,]+)", run(["bpftool", "prog", "show", "id", program_id])).group(1)
     return program_id, [int(map_id) for map_id in map_ids.split(",")]

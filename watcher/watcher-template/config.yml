@@ -67,7 +67,6 @@ topology:
       network-mode: container:router
       # one-shot node: it attaches the announcement filter, brings gre1 up and exits, so it must not be restarted
       restart-policy: "no"
-      cap-add: [NET_ADMIN, BPF, PERFMON]
       env:
         WATCHER_SYSTEM_ID: "0001.1025.1111"
         TUNNEL_NETWORK: 10.10.25.0

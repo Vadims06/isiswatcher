@@ -68,7 +68,6 @@ def test_filter_node_carries_the_watcher_identity_and_replaces_h2(monkeypatch, t
         "WATCHER_SYSTEM_ID": "0003.1025.1111", "TUNNEL_NETWORK": "10.99.3.0", "TUNNEL_PREFIX_LEN": "30"}
     assert nodes["receive_only_filter"]["image"] == "vadims06/isis-filter:v1"
     assert nodes["receive_only_filter"]["network-mode"] == "container:router"
-    assert list(nodes["receive_only_filter"]["cap-add"]) == ["NET_ADMIN", "BPF", "PERFMON"]
     assert "h2" not in nodes
     # FRR's own system id is the one the filter lets out
     assert "net 49.0001.0003.1025.1111.00" in (pathlib.Path(watcher.router_folder_path) / "frr.conf").read_text()
