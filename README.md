@@ -90,7 +90,7 @@ To remove every watcher of the host: `sudo systemctl disable --now topolograph-i
 IS-IS Watcher supports two connection modes:
 
 #### GRE Mode (Traditional)
-The FRR container is isolated in an individual network namespace and establishes an IS-IS adjacency over a GRE tunnel with a network device. The **XDP IS-IS filter** inspects all outgoing IS-IS advertisements. It checks if FRR instance advertises only locally connected network (assigned on GRE tunnel) and no more. If it advertises multiple networks, IS-IS LSP will be dropped. It prevents the network from populating by unexpected network prefixes.
+The FRR container is isolated in an individual network namespace and establishes an IS-IS adjacency over a GRE tunnel with a network device. The **announcement filter** (a tc-BPF program on the egress of `gre1`) lets out the hellos and sequence-number PDUs, but of all LSPs only the watcher's own one, and only with the tunnel subnet as its prefix. Any other LSP, extra prefix or malformed PDU is dropped, so the watcher cannot populate the network with unexpected prefixes or forward the network's LSPs.
 
 #### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise IS-IS topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the IS-IS watcher component. This mode eliminates the need for GRE tunnels and IS-IS adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
@@ -214,23 +214,38 @@ set policy-options policy-statement isis2bgp term 1 then accept
 
 The watcher will connect to the router's BGP-LS peer IP address specified during configuration. 
 
-### Listen-only mode. XDP in action.
+### Listen-only mode. Announcement filter in action.
 If, for some reason, an extra network is advertised from Watcher, this announcement will be dropped.  
 ![](./docs/xdp_behavior_with_two_subnets_on_frr.png)  
-This examples shows that `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by XDP and eventually didn't reach the network.
-To check XDP logs, run
-```
-sudo cat /sys/kernel/debug/tracing/trace_pipe
-```
-To enable/disable XDP
-```
-cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action enable_xdp --watcher_num <num>
-```
-##### Support
-Currently XDP was tested on Ubuntu 18,20 Kernel 5.4.0-204-generic.
-If you faced with XDP errors - skip it while generating config file or use `--action disable_xdp` as it mentioned in the example above.
+This example shows that the `8.8.8.8` prefix was redistributed on Watcher and added into its announcement, but it was dropped by the filter and eventually didn't reach the network.
 
+What leaves `gre1`:
 
+| PDU | Verdict |
+|---|---|
+| Hello (IIH), CSNP, PSNP with the right header length and a PDU length that fits the packet | passes |
+| Fragment 0 of the watcher's LSP (its system id, pseudonode 0) with at most one point-to-point neighbour in all its IS-reach TLVs together and the tunnel subnet as the only prefix | passes |
+| LSP of any other system, pseudonode LSP, fragment above 0 of the watcher's LSP, a second neighbour, a truncated hello or SNP, extra IPv4 prefix, any IPv6 prefix, external IP reachability, malformed, truncated or unknown PDU | dropped |
+| Anything that is not IS-IS | passes |
+
+Known limit: the watcher never sends other systems' LSPs, so a device that has just rebooted gets nothing from it except the watcher's own LSP; it learns the topology from its other neighbours.
+
+The filter node `receive_only_filter` runs once in the FRR network namespace, attaches the program and brings `gre1` up, so nothing leaves the tunnel before the filter is on it. If it fails, `gre1` stays down. containerlab does not report a failed filter node: the sign is `gre1` staying down and the filter container `Exited (1)` in `docker ps -a`, with the reason in `docker logs <lab>-receive_only_filter`. The filter is off by default. It needs Linux kernel 5.4 or newer and was tested on 5.15.
+
+To check that the filter is attached and what it dropped
+```
+sudo ip netns exec <netns> tc filter show dev gre1 egress        # shows "id <program id>"
+sudo bpftool prog show id <program id>                            # shows "map_ids <ids>"
+sudo bpftool map dump id <id>                                     # the map with 7 entries: lsp_passed, truncated, unknown_pdu, foreign_lsp, malformed_tlv, neighbor, prefix
+```
+To enable/disable the filter of a watcher, then redeploy it
+```
+cd /opt/topolograph/isiswatcher && sudo docker run -it --rm -v ./:/home/watcher/watcher/ --cap-add=NET_ADMIN -u root --network host vadims06/isis-watcher:$(cat VERSION) python3 ./client.py --action enable_filter --watcher_num <num>
+sudo containerlab deploy --reconfigure -t watcher/<watcher folder>/config.yml
+```
+Use `--action disable_filter` to switch it off. Without the filter node the lab node `h2` brings `gre1` up.
+
+To run the filter tests (they load the program into the host kernel from a privileged container): `filter/test/run.sh`.
 
 ## Troubleshooting
 Start on the watcher's page in Topolograph (**Monitoring**, then the watcher): it shows which step is missing: the install command ran, data arrived, the graph exists.

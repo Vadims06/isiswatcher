@@ -146,6 +146,17 @@
       ]
     },
     {
+      "id": "is_filter_enabled",
+      "label": "Announcement filter: only the watcher's own LSP leaves the tunnel",
+      "type": "boolean",
+      "source": "default",
+      "default": false,
+      "modes": [
+        "gre"
+      ],
+      "help": "Needs Linux kernel 5.4 or newer on the watcher host."
+    },
+    {
       "id": "bgpls_passive_mode",
       "label": "Passive mode: the router opens the session to TCP 179 of the watcher host",
       "type": "boolean",
