@@ -230,7 +230,7 @@ What leaves `gre1`:
 
 Known limit: the watcher never sends other systems' LSPs, so a device that has just rebooted gets nothing from it except the watcher's own LSP; it learns the topology from its other neighbours.
 
-The filter node `receive_only_filter` runs once in the FRR network namespace, attaches the program and brings `gre1` up, so nothing leaves the tunnel before the filter is on it. If it fails, `gre1` stays down. The filter is off by default. It needs Linux kernel 5.4 or newer and was tested on 5.15.
+The filter node `receive_only_filter` runs once in the FRR network namespace, attaches the program and brings `gre1` up, so nothing leaves the tunnel before the filter is on it. If it fails, `gre1` stays down. containerlab does not report a failed filter node: the sign is `gre1` staying down and the filter container `Exited (1)` in `docker ps -a`, with the reason in `docker logs <lab>-receive_only_filter`. The filter is off by default. It needs Linux kernel 5.4 or newer and was tested on 5.15.
 
 To check that the filter is attached and what it dropped
 ```
