@@ -333,24 +333,7 @@ For a watcher that feeds ELK, Zabbix, Loki or webhooks through Logstash, see [Tr
 
  ### Versions
  #### FRR
-FRR 8 perfectly logs any IS-IS LSPs, but doesn't establish IS-IS adjacency over GRE because of internal packet filtering. The filter has been updated to permit IS-IS over GRE through Pull request [#12979](https://github.com/FRRouting/frr/pull/12979) and is only supported in FRR 9 versions. However, this version has wrong LSDB output (mix LSPID with hostnames) and is incompatible with the Watcher. Therefore, a custom FRR build based on FRR 8.x version with an altered internal filter for GRE packets is required. `vadims06/frr:v8.5.4_isis_over_gre` is prepaired and tested to work IS-IS over GRE tunnel. If you need another 8.x version or want to build your own FRR image - follow the instructions mentioned below.
- #####  How to prepare FRR instance (optional)
- 1. clone FRR and choose any FRR 8.x branch
- ```
- git clone https://github.com/FRRouting/frr.git
- cd frr
- git fetch --all --tags
- git checkout tags/frr-8.5.4 -b frr-8.5.4
- ```
- 2. Change isis filter `frr/isisd/isis_pfpacket.c` how it's mentioned in this [GRE filter](https://github.com/FRRouting/frr/pull/12979) CR.
- ```
- vi frr/isisd/isis_pfpacket.c
- ```
- 3. Build FRR container
- ```
- sudo docker/alpine/build.sh
- ```
- 4. Inspect your new FRR image name using `docker image ls` and replace `{{image_router}}` by your own image name in `isiswatcher/watcher/watcher-template/config.gre.template`
+The watcher's router runs `vadims06/frr:v10.8_stable`. IS-IS over GRE needs FRR 9 or newer ([#12979](https://github.com/FRRouting/frr/pull/12979)). The template sets `no hostname dynamic` under `router isis`, so FRR lists LSPs by system ID as the watcher reads them; keep it if you use your own FRR image in `watcher/watcher-template/config.gre.template`.
 
 ### Topolograph suite
 * OSPF Watcher [link](https://github.com/Vadims06/ospfwatcher)
