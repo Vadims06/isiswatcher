@@ -18,6 +18,7 @@ exit
 !
 router isis watcher1
  net {{system_id}}
+ no hostname dynamic
 !
 route-map TO_KERNEL deny 200
 exit

@@ -1,0 +1,66 @@
+{
+  "index_patterns": [
+    "isis-watcher-updown-events*"
+  ],
+  "template": {
+    "mappings": {
+      "dynamic": false,
+      "properties": {
+        "@timestamp": {
+          "type": "date"
+        },
+        "watcher_time": {
+          "type": "date",
+          "format": "date_optional_time"
+        },
+        "watcher_time_iso8601": {
+          "type": "date",
+          "format": "date_optional_time"
+        },
+        "watcher_name": {
+          "type": "keyword"
+        },
+        "level_number": {
+          "type": "keyword"
+        },
+        "event_name": {
+          "type": "keyword"
+        },
+        "event_object": {
+          "type": "keyword"
+        },
+        "event_status": {
+          "type": "keyword"
+        },
+        "old_cost": {
+          "type": "integer"
+        },
+        "new_cost": {
+          "type": "integer"
+        },
+        "event_detected_by": {
+          "type": "keyword"
+        },
+        "graph_time": {
+          "type": "keyword"
+        },
+        "asn": {
+          "type": "keyword"
+        },
+        "area_num": {
+          "type": "keyword"
+        },
+        "local_ip_address": {
+          "type": "ip"
+        },
+        "remote_ip_address": {
+          "type": "ip"
+        }
+      }
+    }
+  },
+  "_meta": {
+    "description": "IS-IS index template for Watcher logs"
+  },
+  "allow_auto_create": true
+}
