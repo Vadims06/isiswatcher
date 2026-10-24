@@ -223,9 +223,9 @@ What leaves `gre1`:
 
 | PDU | Verdict |
 |---|---|
-| Hello (IIH), CSNP, PSNP | passes |
-| LSP of the watcher (its system id, pseudonode 0) with at most one point-to-point neighbour and the tunnel subnet as the only prefix | passes |
-| LSP of any other system, pseudonode LSP, extra IPv4 prefix, any IPv6 prefix, external IP reachability, malformed, truncated or unknown PDU | dropped |
+| Hello (IIH), CSNP, PSNP with the right header length and a PDU length that fits the packet | passes |
+| Fragment 0 of the watcher's LSP (its system id, pseudonode 0) with at most one point-to-point neighbour in all its IS-reach TLVs together and the tunnel subnet as the only prefix | passes |
+| LSP of any other system, pseudonode LSP, fragment above 0 of the watcher's LSP, a second neighbour, a truncated hello or SNP, extra IPv4 prefix, any IPv6 prefix, external IP reachability, malformed, truncated or unknown PDU | dropped |
 | Anything that is not IS-IS | passes |
 
 Known limit: the watcher never sends other systems' LSPs, so a device that has just rebooted gets nothing from it except the watcher's own LSP; it learns the topology from its other neighbours.

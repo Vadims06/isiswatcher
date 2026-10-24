@@ -82,6 +82,12 @@ def make_hello():
     return header + tlvs
 
 
+def make_lan_hello():
+    tlvs = make_tlv(1, b"\x03\x49\x00\x01")
+    header = bytes([0x83, 27, 1, 0, LAN_HELLO_L1, 1, 0, 0, 1]) + WATCHER + struct.pack(">HH", 30, 27 + len(tlvs))
+    return header + b"\x40" + DEVICE + b"\x01" + tlvs
+
+
 def make_icmp():
     return bytes.fromhex("450000540000400040010000" "0a0a1921" "0a0a1920" "0800f7ff00010001")
 
@@ -97,7 +103,6 @@ CASES = [
     ("own L2 LSP as FRR emits it", make_lsp(FRR_TLVS), PASS, "lsp_passed"),
     ("own L1 LSP with ATT bit", make_lsp(FRR_TLVS, pdu_type=LSP_L1, flags=0x08), PASS, "lsp_passed"),
     ("own LSP with no TLVs (header-only, purge) [over-strict header-only rule]", make_lsp(), PASS, "lsp_passed"),
-    ("own LSP fragment 1", make_lsp(FRR_TLVS, fragment=1), PASS, "lsp_passed"),
     ("own prefix with a sub-TLV is read by length", make_lsp([make_tlv(135, make_prefix_entry("10.10.25.0", 24, b"\x01\x01\x07"))]), PASS, "lsp_passed"),
     ("foreign TLV in a trailer after the PDU is not parsed [loop bounded by packet end]",
      make_lsp(FRR_TLVS, trailer=FOREIGN_TLV_135), PASS, "lsp_passed"),
@@ -106,7 +111,7 @@ CASES = [
     ("MT IP reach with the tunnel prefix", make_lsp([make_tlv(235, b"\x00\x02" + make_prefix_entry("10.10.25.0", 24))]), PASS, "lsp_passed"),
     ("narrow IP reach with the tunnel prefix", make_lsp([make_tlv(128, bytes([10, 0x80, 0x80, 0x80, 10, 10, 25, 0, 255, 255, 255, 0]))]), PASS, "lsp_passed"),
     ("point-to-point hello", make_hello(), PASS, None),
-    ("LAN hello L1", bytes([0x83, 27, 1, 0, LAN_HELLO_L1, 1, 0, 0]) + bytes(40), PASS, None),
+    ("LAN hello L1", make_lan_hello(), PASS, None),
     ("CSNP listing another router's LSP", make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY)), PASS, None),
     ("PSNP listing another router's LSP", make_snp(PSNP_L2, 17, make_tlv(9, LSP_ENTRY)), PASS, None),
     ("IPv4 packet in the tunnel", make_icmp(), PASS, None),
@@ -114,6 +119,7 @@ CASES = [
     ("another router's LSP", make_lsp(FRR_TLVS, system_id=OTHER_ROUTER), DROP, "foreign_lsp"),
     ("system id differs in the last byte only", make_lsp(FRR_TLVS, system_id=bytes.fromhex("000210251112")), DROP, "foreign_lsp"),
     ("own pseudonode LSP", make_lsp(FRR_TLVS, pseudonode=1), DROP, "foreign_lsp"),
+    ("own fragment 1: only fragment 0 leaves, so neighbours cannot be split across fragments", make_lsp(FRR_TLVS, fragment=1), DROP, "foreign_lsp"),
     ("second prefix 8.8.8.8/32 in the tunnel prefix TLV", make_lsp([make_tlv(135, make_prefix_entry("10.10.25.0", 24) + make_prefix_entry("8.8.8.8", 32))]), DROP, "prefix"),
     ("8.8.8.8/32 in its own TLV after the usual ones", make_lsp(FRR_TLVS + [FOREIGN_TLV_135]), DROP, "prefix"),
     ("8.8.8.8/32 instead of the tunnel prefix", make_lsp([FOREIGN_TLV_135]), DROP, "prefix"),
@@ -129,8 +135,13 @@ CASES = [
     ("two neighbours in one IS reach TLV", make_lsp([make_tlv(22, make_is_entry() + make_is_entry(OTHER_ROUTER))]), DROP, "neighbor"),
     ("neighbour behind a pseudonode", make_lsp([make_tlv(22, make_is_entry(pseudonode=1))]), DROP, "neighbor"),
     ("MT IS reach with two neighbours", make_lsp([make_tlv(222, b"\x00\x02" + make_is_entry() + make_is_entry(OTHER_ROUTER))]), DROP, "neighbor"),
+    ("two IS reach TLVs with one different neighbour each", make_lsp([make_tlv(22, make_is_entry()), make_tlv(22, make_is_entry(OTHER_ROUTER))]), DROP, "neighbor"),
+    ("IS reach and MT IS reach with different neighbours", make_lsp([make_tlv(22, make_is_entry()), make_tlv(222, b"\x00\x02" + make_is_entry(OTHER_ROUTER))]), DROP, "neighbor"),
     ("narrow-metric IS reach", make_lsp([make_tlv(2, b"\x00" + bytes([10, 0x80, 0x80, 0x80]) + DEVICE + b"\x00")]), DROP, "neighbor"),
 
+    ("10-byte point-to-point hello", make_hello()[:10], DROP, "truncated"),
+    ("CSNP declaring more bytes than the packet has", make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY))[:8] + struct.pack(">H", 900) + make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY))[10:], DROP, "truncated"),
+    ("PSNP with a header length of 33", make_snp(PSNP_L2, 33, make_tlv(9, LSP_ENTRY)), DROP, "truncated"),
     ("LSP cut short: packet is shorter than the PDU length", make_lsp(FRR_TLVS)[:-10], DROP, "truncated"),
     ("PDU length below the LSP header", make_lsp(FRR_TLVS, pdu_len=20), DROP, "truncated"),
     ("IS-IS packet shorter than the common header [fail-open on parse failure]", bytes([0x83, 27, 1, 0]), DROP, "truncated"),

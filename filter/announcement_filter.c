@@ -8,7 +8,13 @@
 #endif
 
 #define NLPID_ISIS 0x83
-#define LSP_LENGTH_FIELD_END 10
+#define IIH_LENGTH_FIELD_END 19
+#define IIH_LENGTH_FIELD 17
+#define SNP_LENGTH_FIELD 8
+#define P2P_IIH_HEADER_LEN 20
+#define LAN_IIH_HEADER_LEN 27
+#define CSNP_HEADER_LEN 33
+#define PSNP_HEADER_LEN 17
 #define LSP_HEADER_LEN 27
 #define PDU_TYPE_MASK 0x1f
 #define PDU_LAN_IIH_L1 15
@@ -198,44 +204,65 @@ int isis_filter(struct __sk_buff *skb)
 
     __u8 *pdu = bpf_map_lookup_elem(&scratch, &key);
 
-    if (!pdu || load_pdu(skb, pdu, LSP_LENGTH_FIELD_END) < 0)
+    if (!pdu || load_pdu(skb, pdu, IIH_LENGTH_FIELD_END) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
 
+    __u32 header_len, length_field;
+    int is_lsp = 0;
+
     switch (pdu[4] & PDU_TYPE_MASK) {
+    case PDU_P2P_IIH:
+        header_len = P2P_IIH_HEADER_LEN;
+        length_field = IIH_LENGTH_FIELD;
+        break;
     case PDU_LAN_IIH_L1:
     case PDU_LAN_IIH_L2:
-    case PDU_P2P_IIH:
+        header_len = LAN_IIH_HEADER_LEN;
+        length_field = IIH_LENGTH_FIELD;
+        break;
     case PDU_CSNP_L1:
     case PDU_CSNP_L2:
+        header_len = CSNP_HEADER_LEN;
+        length_field = SNP_LENGTH_FIELD;
+        break;
     case PDU_PSNP_L1:
     case PDU_PSNP_L2:
-        return TC_ACT_OK;
+        header_len = PSNP_HEADER_LEN;
+        length_field = SNP_LENGTH_FIELD;
+        break;
     case PDU_LSP_L1:
     case PDU_LSP_L2:
+        header_len = LSP_HEADER_LEN;
+        length_field = SNP_LENGTH_FIELD;
+        is_lsp = 1;
         break;
     default:
         return count(COUNTER_DROP_UNKNOWN_PDU, TC_ACT_SHOT);
     }
 
-    __u32 pdu_len = ((__u32)pdu[8] << 8) | pdu[9];
+    __u32 pdu_len = ((__u32)AT(length_field) << 8) | AT(length_field + 1);
 
-    if (pdu[1] != LSP_HEADER_LEN || pdu_len < LSP_HEADER_LEN || pdu_len > MAX_PDU_LEN)
+    if (pdu[1] != header_len || pdu_len < header_len || pdu_len > MAX_PDU_LEN)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
     /* Keeps both bounds in the register the helper reads, which the verifier needs */
     asm volatile("" : "+r"(pdu_len));
     /* Only the PDU is read, so bytes after its length are never parsed */
     if (load_pdu(skb, pdu, pdu_len) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
+    if (!is_lsp)
+        return TC_ACT_OK;
     if (pdu[3] != 0 && pdu[3] != 6)
         return count(COUNTER_DROP_MALFORMED_TLV, TC_ACT_SHOT);
 #pragma unroll
     for (int byte = 0; byte < 6; byte++)
         if (pdu[12 + byte] != watcher_system_id[byte])
             return count(COUNTER_DROP_FOREIGN_LSP, TC_ACT_SHOT);
-    if (pdu[18] != 0)
+    /* The own LSP is tiny, so only fragment 0 leaves: a limit of one neighbour could not hold across fragments */
+    if (pdu[18] != 0 || pdu[19] != 0)
         return count(COUNTER_DROP_FOREIGN_LSP, TC_ACT_SHOT);
 
     __u32 offset = LSP_HEADER_LEN;
+    int has_neighbor = 0;
 
     for (int tlv = 0; tlv < MAX_TLVS; tlv++) {
         if (offset == pdu_len)
@@ -245,7 +272,13 @@ int isis_filter(struct __sk_buff *skb)
         __u32 length = AT(offset + 1);
         if (offset + 2 + length > pdu_len)
             return count(COUNTER_DROP_MALFORMED_TLV, TC_ACT_SHOT);
-        int reason = get_tlv_drop(AT(offset), offset + 2, length);
+        __u32 type = AT(offset);
+        int reason = get_tlv_drop(type, offset + 2, length);
+        /* A limit of one neighbour holds over all IS reach TLVs of the LSP, not per TLV */
+        if (!reason && (type == TLV_IS_REACH || type == TLV_MT_IS_REACH) && length > (type == TLV_MT_IS_REACH ? 2 : 0)) {
+            reason = has_neighbor ? COUNTER_DROP_NEIGHBOR : 0;
+            has_neighbor = 1;
+        }
         if (reason)
             return count(reason, TC_ACT_SHOT);
         offset += 2 + length;
