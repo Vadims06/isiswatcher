@@ -1,6 +1,13 @@
-# IS-IS Watcher Release Notes v3.4.0
+# IS-IS Watcher Release Notes v4.0.0
 
 ## Changes
+
+**The watcher is rewritten in Rust**
+The image `vadims06/isis-watcher` is now one static binary with no Python in it. The event log lines and what Topolograph receives stay the same.
+* `diagnostic` is built in: `sudo onboarding/diagnostic.sh <num>` checks GRE and IS-IS hellos from both ends, MTU, stale conntrack entries and the iptables rules on the watcher's path, and prints the command that fixes a wrong rule.
+* Without Topolograph the watcher says once at start that events go to the local log only.
+* IS-IS: no `abr`/`asbr` node events any more. RFC 7752 defines those node flag bits for OSPF only.
+* IS-IS: a DIS change no longer reports every router of the LAN as down and up.
 
 **Install from Topolograph**
 Topolograph Enterprise's Watchers page now installs a watcher in GRE or BGP-LS mode. It
@@ -31,3 +38,5 @@ A watcher installed by hand moves to the Topolograph install as described in the
 
 Rebuild the watchers with `./configure.sh`. A watcher that ran the XDP filter keeps it
 attached to its host veth until its lab is redeployed.
+
+Every watcher restarts once after the upgrade, because its pinned image version changes. The Python images up to `v3.2.0` stay on Docker Hub.
