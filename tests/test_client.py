@@ -56,6 +56,10 @@ def build_watcher(monkeypatch, tmp_path, enable_filter):
     return client, watcher
 
 
+def get_watcher_wait_for(nodes):
+    return [dict(item) for item in nodes["isis-watcher"]["stages"]["create"]["wait-for"]]
+
+
 def get_nodes(watcher):
     return watcher.watcher_config_file_yml["topology"]["nodes"]
 
@@ -69,6 +73,7 @@ def test_filter_node_carries_the_watcher_identity_and_replaces_h2(monkeypatch, t
     assert nodes["receive_only_filter"]["image"] == "vadims06/isis-filter:v1"
     assert nodes["receive_only_filter"]["network-mode"] == "container:router"
     assert "h2" not in nodes
+    assert get_watcher_wait_for(nodes) == [{"node": "receive_only_filter", "stage": "exit"}]
     # FRR's own system id is the one the filter lets out
     assert "net 49.0001.0003.1025.1111.00" in (pathlib.Path(watcher.router_folder_path) / "frr.conf").read_text()
 
@@ -79,6 +84,7 @@ def test_without_filter_h2_brings_the_tunnel_up_after_h1(monkeypatch, tmp_path):
     nodes = get_nodes(watcher)
     assert "receive_only_filter" not in nodes
     assert [dict(item) for item in nodes["h2"]["stages"]["create"]["wait-for"]] == [{"node": "h1", "stage": "create"}]
+    assert get_watcher_wait_for(nodes) == [{"node": "h2", "stage": "create"}]
     assert list(nodes["h2"]["exec"]) == [f"sudo ip netns exec {watcher.netns_name} ip link set up dev gre1"]
 
 
@@ -87,9 +93,11 @@ def test_filter_actions_switch_an_existing_watcher(monkeypatch, tmp_path):
 
     client.WATCHER_CONFIG(3).run_command("enable_filter")
     assert "receive_only_filter" in get_nodes(watcher) and "h2" not in get_nodes(watcher)
+    assert get_watcher_wait_for(get_nodes(watcher)) == [{"node": "receive_only_filter", "stage": "exit"}]
 
     client.WATCHER_CONFIG(3).run_command("disable_filter")
     assert "receive_only_filter" not in get_nodes(watcher) and "h2" in get_nodes(watcher)
+    assert get_watcher_wait_for(get_nodes(watcher)) == [{"node": "h2", "stage": "create"}]
 
 
 def test_pinned_filter_image_follows_the_registry_prefix(monkeypatch, tmp_path):

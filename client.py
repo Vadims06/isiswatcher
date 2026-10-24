@@ -207,11 +207,14 @@ class WATCHER_CONFIG:
             nodes[self.ISIS_FILTER_NODE_NAME]['image'] = self.PINNED_IMAGES[self.ISIS_FILTER_NODE_NAME]
             nodes[self.ISIS_FILTER_NODE_NAME]['env'] = self.get_filter_env()
             nodes.pop('h2', None)
-            return
-        nodes.pop(self.ISIS_FILTER_NODE_NAME, None)
-        nodes['h2'] = copy.deepcopy(template_nodes['h2'])
-        nodes['h2']['stages']['create']['wait-for'] = [{'node': 'h1', 'stage': 'create'}]
-        nodes['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+            watcher_waits_for = {'node': self.ISIS_FILTER_NODE_NAME, 'stage': 'exit'}
+        else:
+            nodes.pop(self.ISIS_FILTER_NODE_NAME, None)
+            nodes['h2'] = copy.deepcopy(template_nodes['h2'])
+            nodes['h2']['stages']['create']['wait-for'] = [{'node': 'h1', 'stage': 'create'}]
+            nodes['h2']['exec'] = [f'sudo ip netns exec {self.netns_name} ip link set up dev gre1']
+            watcher_waits_for = {'node': 'h2', 'stage': 'create'}
+        nodes[self.WATCHER_NODE_NAME]['stages']['create']['wait-for'] = [watcher_waits_for]
 
     @property
     def watcher_root_folder_path(self):
