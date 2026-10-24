@@ -191,7 +191,7 @@ sudo clab deploy --topo watcher/watcher<num>-bgpls-isis/config.yml
 * GRE tunnel in Watcher's namespace
 * NAT settings for GRE traffic
 * FRR & Watcher instance
-* assign XDP IS-IS filter on watcher's tap interface (if enabled)
+* attach the announcement filter to `gre1` of the watcher (if enabled)
 
 **BGP-LS Mode** will create:
 * bgplswatcher (GoBGP) container for BGP-LS session
