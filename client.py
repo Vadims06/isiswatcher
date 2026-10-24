@@ -84,7 +84,7 @@ class WATCHER_CONFIG:
         self.organisation_name = ""
         self._host_veth = ""
         self.watcher_name = ""
-        self.enable_filter = True
+        self.is_filter_enabled = True
         # BGP-LS specific attributes
         self.bgpls_router_ip = ""
         self.bgpls_router_as = 0
@@ -202,7 +202,7 @@ class WATCHER_CONFIG:
         """The filter node brings gre1 up once attached, so without it h2 does."""
         nodes = config_yml['topology']['nodes']
         template_nodes = self.watcher_config_template_yml['topology']['nodes']
-        if self.enable_filter:
+        if self.is_filter_enabled:
             nodes[self.ISIS_FILTER_NODE_NAME] = copy.deepcopy(template_nodes[self.ISIS_FILTER_NODE_NAME])
             nodes[self.ISIS_FILTER_NODE_NAME]['image'] = self.PINNED_IMAGES[self.ISIS_FILTER_NODE_NAME]
             nodes[self.ISIS_FILTER_NODE_NAME]['env'] = self.get_filter_env()
@@ -708,13 +708,13 @@ class WATCHER_CONFIG:
         self.watcher_name = str(input("Watcher name: ")).lower().replace(" ", "-")
         if not self.watcher_name:
             self.watcher_name = "isiswatcher-demo"
-        self.enable_filter = None
-        while self.enable_filter is None:
+        self.is_filter_enabled = None
+        while self.is_filter_enabled is None:
             enable_filter_reply = input("Enable announcement filter? [Y/n] ").lower().strip()
             if enable_filter_reply in ("", "y"):
-                self.enable_filter = True
+                self.is_filter_enabled = True
             elif enable_filter_reply == "n":
-                self.enable_filter = False
+                self.is_filter_enabled = False
 
     @property
     def gre_rule_owner(self):
@@ -983,8 +983,8 @@ class WATCHER_CONFIG:
         watcher_obj.run_command(args.action)
 
     def run_command(self, action):
-        # The class attribute: an instance attribute such as enable_filter would shadow the action
-        return getattr(type(self), action)(self)
+        method = getattr(self, action)
+        return method()
 
     def add_watcher(self):
         print("Manual setup keeps events in local logs and the exporters set in .env (ELK, Zabbix, Loki, webhooks). "
@@ -1051,7 +1051,7 @@ class WATCHER_CONFIG:
         current_clab_config = self.watcher_config_file_yml
         if not current_clab_config:
             raise ValueError(f"config file for watcher #{self.watcher_num} was not found")
-        self.enable_filter = is_enabled
+        self.is_filter_enabled = is_enabled
         self.set_filter_nodes(current_clab_config)
         self._do_save_watcher_config_file(current_clab_config)
 

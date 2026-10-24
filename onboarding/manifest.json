@@ -146,7 +146,7 @@
       ]
     },
     {
-      "id": "enable_filter",
+      "id": "is_filter_enabled",
       "label": "Announcement filter: only the watcher's own LSP leaves the tunnel",
       "type": "boolean",
       "source": "default",

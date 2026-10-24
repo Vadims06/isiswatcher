@@ -12,7 +12,7 @@ be proven to be the watcher's own is dropped, and drops are counted per reason.
 
 - Image: `vadims06/isis-filter` (was `vadims06/isis-filter-xdp`), pinned as `v1`.
 - Actions: `enable_filter` and `disable_filter` (were `enable_xdp` and `disable_xdp`).
-- Answers: `enable_filter`, on by default for GRE watchers.
+- Answers: `is_filter_enabled`, on by default for GRE watchers.
 - The filter node runs in the FRR network namespace with `NET_ADMIN`, `BPF` and
   `PERFMON` instead of host networking, and brings `gre1` up itself once attached.
 - Needs Linux 5.4 or newer. See *Listen-only mode* in the README for the counters.

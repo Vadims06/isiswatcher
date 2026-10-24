@@ -51,7 +51,7 @@ def build_watcher(monkeypatch, tmp_path, enable_filter):
     watcher.gre_tunnel_ip_w_mask_network_device = "10.99.3.1/30"
     watcher.gre_tunnel_ip_w_mask_watcher = "10.99.3.2/30"
     watcher.isis_area_num = "49.0001"
-    watcher.enable_filter = enable_filter
+    watcher.is_filter_enabled = enable_filter
     watcher.create_folder_with_settings()
     return client, watcher
 
