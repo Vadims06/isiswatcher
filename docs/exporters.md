@@ -85,13 +85,6 @@ To create Index Templates, run:
 for template in logstash/index_template/*.json; do
   curl -u elastic:changeme -H 'Content-Type: application/json' -X PUT --data-binary "@$template" "http://<ELASTIC_IP>:9200/_index_template/$(basename "$template" .json)"
 done
-```
-
-To create Index Templates, run:
-```
-for template in logstash/index_template/*.json; do
-  curl -u elastic:changeme -H 'Content-Type: application/json' -X PUT --data-binary "@$template" "http://<ELASTIC_IP>:9200/_index_template/$(basename "$template" .json)"
-done
 ```   
 * if not - boot up a new ELK from [docker-elk](https://github.com/deviantony/docker-elk) compose. For demo purporse set license of ELK as basic and turn off security. The setting are in docker-elk/elasticsearch/config/elasticsearch.yml  
 ```
