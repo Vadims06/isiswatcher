@@ -114,6 +114,8 @@ CASES = [
     ("LAN hello L1", make_lan_hello(), PASS, None),
     ("CSNP listing another router's LSP", make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY)), PASS, None),
     ("PSNP listing another router's LSP", make_snp(PSNP_L2, 17, make_tlv(9, LSP_ENTRY)), PASS, None),
+    ("PSNP with no TLVs, exactly its 17-byte header", make_snp(PSNP_L2, 17, b""), PASS, None),
+    ("CSNP with no TLVs, exactly its 33-byte header", make_snp(CSNP_L2, 33, b""), PASS, None),
     ("IPv4 packet in the tunnel", make_icmp(), PASS, None),
 
     ("another router's LSP", make_lsp(FRR_TLVS, system_id=OTHER_ROUTER), DROP, "foreign_lsp"),
@@ -139,6 +141,7 @@ CASES = [
     ("IS reach and MT IS reach with different neighbours", make_lsp([make_tlv(22, make_is_entry()), make_tlv(222, b"\x00\x02" + make_is_entry(OTHER_ROUTER))]), DROP, "neighbor"),
     ("narrow-metric IS reach", make_lsp([make_tlv(2, b"\x00" + bytes([10, 0x80, 0x80, 0x80]) + DEVICE + b"\x00")]), DROP, "neighbor"),
 
+    ("PSNP one byte short of its header", make_snp(PSNP_L2, 17, b"")[:16], DROP, "truncated"),
     ("10-byte point-to-point hello", make_hello()[:10], DROP, "truncated"),
     ("CSNP declaring more bytes than the packet has", make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY))[:8] + struct.pack(">H", 900) + make_snp(CSNP_L2, 33, make_tlv(9, LSP_ENTRY))[10:], DROP, "truncated"),
     ("PSNP with a header length of 33", make_snp(PSNP_L2, 33, make_tlv(9, LSP_ENTRY)), DROP, "truncated"),

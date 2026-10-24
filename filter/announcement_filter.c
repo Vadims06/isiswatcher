@@ -9,6 +9,7 @@
 
 #define NLPID_ISIS 0x83
 #define IIH_LENGTH_FIELD_END 19
+#define SNP_LENGTH_FIELD_END 10
 #define IIH_LENGTH_FIELD 17
 #define SNP_LENGTH_FIELD 8
 #define P2P_IIH_HEADER_LEN 20
@@ -204,7 +205,7 @@ int isis_filter(struct __sk_buff *skb)
 
     __u8 *pdu = bpf_map_lookup_elem(&scratch, &key);
 
-    if (!pdu || load_pdu(skb, pdu, IIH_LENGTH_FIELD_END) < 0)
+    if (!pdu || load_pdu(skb, pdu, SNP_LENGTH_FIELD_END) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
 
     __u32 header_len, length_field;
@@ -212,13 +213,13 @@ int isis_filter(struct __sk_buff *skb)
 
     switch (pdu[4] & PDU_TYPE_MASK) {
     case PDU_P2P_IIH:
-        header_len = P2P_IIH_HEADER_LEN;
-        length_field = IIH_LENGTH_FIELD;
-        break;
     case PDU_LAN_IIH_L1:
     case PDU_LAN_IIH_L2:
-        header_len = LAN_IIH_HEADER_LEN;
+        /* The hello length field sits further in; the shortest valid hello covers it */
+        header_len = (pdu[4] & PDU_TYPE_MASK) == PDU_P2P_IIH ? P2P_IIH_HEADER_LEN : LAN_IIH_HEADER_LEN;
         length_field = IIH_LENGTH_FIELD;
+        if (load_pdu(skb, pdu, IIH_LENGTH_FIELD_END) < 0)
+            return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
         break;
     case PDU_CSNP_L1:
     case PDU_CSNP_L2:
