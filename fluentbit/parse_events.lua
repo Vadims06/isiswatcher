@@ -27,31 +27,23 @@ function parse_events(tag, timestamp, record)
             record["max_link_bw"] = parts[8]
             record["max_rsrv_link_bw"] = parts[9]
             record["temetric"] = parts[11]
-            -- v3.2.0+: srlg follows temetric as part of TE attributes, but the
-            -- watcher omits the field entirely (not even a blank one) when a
-            -- link has no SRLG, so #parts alone can't tell the two layouts
-            -- apart -- a trailing comma in the log line pads #parts by one
-            -- regardless. Sniff parts[12] instead: SRLG ids are digits/
-            -- underscores only, while event_detected_by is always a hostname,
-            -- IP or System ID, which always contains a letter or a dot.
-            local offset = 0
-            if parts[12] and string.match(parts[12], "^[%d_]+$") then
+            record["event_detected_by"] = parts[12]
+            record["graph_time"] = parts[13]
+            record["area_num"] = parts[14]
+            record["asn"] = parts[15]
+            record["local_ip_address"] = parts[16]
+            record["remote_ip_address"] = parts[17]
+            if #parts >= 19 then
+                record["sesid"] = parts[18]
+                record["srcid"] = parts[19]
+            end
+            -- v3.2.0+: trailing srlg field (underscore-joined Shared Risk Link Group values)
+            if #parts >= 20 and parts[20] ~= "" then
                 local srlg = {}
-                for value in string.gmatch(parts[12], "([^_]+)") do
+                for value in string.gmatch(parts[20], "([^_]+)") do
                     table.insert(srlg, value)
                 end
                 record["srlg"] = srlg
-                offset = 1
-            end
-            record["event_detected_by"] = parts[12 + offset]
-            record["graph_time"] = parts[13 + offset]
-            record["area_num"] = parts[14 + offset]
-            record["asn"] = parts[15 + offset]
-            record["local_ip_address"] = parts[16 + offset]
-            record["remote_ip_address"] = parts[17 + offset]
-            if #parts >= 19 + offset then
-                record["sesid"] = parts[18 + offset]
-                record["srcid"] = parts[19 + offset]
             end
 
             local admin_groups = {}
