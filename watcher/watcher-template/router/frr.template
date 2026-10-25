@@ -7,10 +7,7 @@ ipv6 forwarding
 password zebra
 enable password zebra
 !
-interface {{interface_name}}
-{{#macvlan}}
- ip address {{macvlan_ip_w_mask_watcher}}
-{{/macvlan}}
+interface gre1
  ip router isis watcher1
  ipv6 router isis watcher1
  isis csnp-interval 600
@@ -21,8 +18,6 @@ exit
 !
 router isis watcher1
  net {{system_id}}
- no hostname dynamic
- no attached-bit send
 !
 route-map TO_KERNEL deny 200
 exit
