@@ -1,13 +1,20 @@
-/* Listen-only filter for the watcher's FRR: of all IS-IS LSPs only the watcher's own may leave gre1. */
+/* Listen-only filter for the watcher's FRR: of all IS-IS LSPs only the watcher's own may leave gre1 or a macvlan. */
 #include <linux/bpf.h>
 #include <linux/pkt_cls.h>
+#include <linux/if_ether.h>
 #include <bpf/bpf_helpers.h>
+#include <bpf/bpf_endian.h>
 
 #if !defined(WATCHER_SYSTEM_ID_BYTES) || !defined(TUNNEL_NETWORK) || !defined(TUNNEL_PREFIX_LEN)
 #error "set WATCHER_SYSTEM_ID_BYTES, TUNNEL_NETWORK and TUNNEL_PREFIX_LEN"
 #endif
 
 #define NLPID_ISIS 0x83
+#define LLC_BYTE 0xfe
+#define LLC_CONTROL 0x03
+#define LLC_LEN 3
+#define LSP_FLAGS 26
+#define LSP_ATT_BITS 0x78
 #define IIH_LENGTH_FIELD_END 19
 #define SNP_LENGTH_FIELD_END 10
 #define IIH_LENGTH_FIELD 17
@@ -55,6 +62,7 @@ enum counter {
     COUNTER_DROP_MALFORMED_TLV,
     COUNTER_DROP_NEIGHBOR,
     COUNTER_DROP_PREFIX,
+    COUNTER_DROP_ATTACHED,
     COUNTER_MAX,
 };
 
@@ -183,10 +191,9 @@ __attribute__((noinline)) int get_tlv_drop(__u32 type, __u32 start, __u32 length
     return 0;
 }
 
-/* Reads relative to the network header: gre1 has no link header in production, BPF_PROG_TEST_RUN adds one */
-static __always_inline long load_pdu(struct __sk_buff *skb, void *to, __u32 length)
+static __always_inline long load_pdu(struct __sk_buff *skb, __u32 base, void *to, __u32 length)
 {
-    return bpf_skb_load_bytes_relative(skb, 0, to, length, BPF_HDR_START_NET);
+    return bpf_skb_load_bytes_relative(skb, base, to, length, BPF_HDR_START_NET);
 }
 
 SEC("classifier")
@@ -194,10 +201,25 @@ int isis_filter(struct __sk_buff *skb)
 {
     const __u8 watcher_system_id[6] = {WATCHER_SYSTEM_ID_BYTES};
     __u32 key = 0;
+    __u32 base = 0;
+    __u8 llc[LLC_LEN];
     __u8 nlpid;
 
+    /* A real ethertype (IP, ARP, IPv6) carries no IS-IS; gre1 and 802.3 frames have protocol below it */
+    if (bpf_ntohs(skb->protocol) >= ETH_P_802_3_MIN)
+        return TC_ACT_OK;
     /* A packet that cannot be read is not let out */
-    if (load_pdu(skb, &nlpid, 1) < 0)
+    if (load_pdu(skb, 0, llc, 1) < 0)
+        return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
+    /* gre1 egress starts at the PDU; a macvlan egress starts at the LLC header in front of it */
+    if (llc[0] == LLC_BYTE) {
+        if (load_pdu(skb, 0, llc, LLC_LEN) < 0)
+            return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
+        if (llc[1] != LLC_BYTE || llc[2] != LLC_CONTROL)
+            return TC_ACT_OK;
+        base = LLC_LEN;
+    }
+    if (load_pdu(skb, base, &nlpid, 1) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
     if (nlpid != NLPID_ISIS)
         return TC_ACT_OK;
@@ -205,7 +227,7 @@ int isis_filter(struct __sk_buff *skb)
 
     __u8 *pdu = bpf_map_lookup_elem(&scratch, &key);
 
-    if (!pdu || load_pdu(skb, pdu, SNP_LENGTH_FIELD_END) < 0)
+    if (!pdu || load_pdu(skb, base, pdu, SNP_LENGTH_FIELD_END) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
 
     __u32 header_len, length_field;
@@ -218,7 +240,7 @@ int isis_filter(struct __sk_buff *skb)
         /* The hello length field sits further in; the shortest valid hello covers it */
         header_len = (pdu[4] & PDU_TYPE_MASK) == PDU_P2P_IIH ? P2P_IIH_HEADER_LEN : LAN_IIH_HEADER_LEN;
         length_field = IIH_LENGTH_FIELD;
-        if (load_pdu(skb, pdu, IIH_LENGTH_FIELD_END) < 0)
+        if (load_pdu(skb, base, pdu, IIH_LENGTH_FIELD_END) < 0)
             return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
         break;
     case PDU_CSNP_L1:
@@ -248,12 +270,15 @@ int isis_filter(struct __sk_buff *skb)
     /* Keeps both bounds in the register the helper reads, which the verifier needs */
     asm volatile("" : "+r"(pdu_len));
     /* Only the PDU is read, so bytes after its length are never parsed */
-    if (load_pdu(skb, pdu, pdu_len) < 0)
+    if (load_pdu(skb, base, pdu, pdu_len) < 0)
         return count(COUNTER_DROP_TRUNCATED, TC_ACT_SHOT);
     if (!is_lsp)
         return TC_ACT_OK;
     if (pdu[3] != 0 && pdu[3] != 6)
         return count(COUNTER_DROP_MALFORMED_TLV, TC_ACT_SHOT);
+    /* ATT makes L1 routers send their default route to the watcher */
+    if (pdu[LSP_FLAGS] & LSP_ATT_BITS)
+        return count(COUNTER_DROP_ATTACHED, TC_ACT_SHOT);
 #pragma unroll
     for (int byte = 0; byte < 6; byte++)
         if (pdu[12 + byte] != watcher_system_id[byte])
