@@ -21,7 +21,7 @@ IS-IS Watcher is a monitoring tool of IS-IS topology changes for network enginee
 ![Link metric change highlighted on the graph](docs/ui/cost-change-on-graph.png)
 
 ## Quick start
-1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (IS-IS Watcher) and the mode (GRE or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
+1. Enterprise: in Topolograph open **Add → Watcher**, choose the type (IS-IS Watcher) and the mode (GRE, Macvlan or BGP-LS) and fill in the form. The wizard issues a watcher token and shows one install command.
 
     ![Add watcher: choose type and mode](docs/ui/watcher-mode.png)
 
@@ -87,10 +87,20 @@ To remove every watcher of the host: `sudo systemctl disable --now topolograph-i
 
 ### Connection Modes
 
-IS-IS Watcher supports two connection modes:
+IS-IS Watcher supports three connection modes:
 
 #### GRE Mode (Traditional)
 The FRR container is isolated in an individual network namespace and establishes an IS-IS adjacency over a GRE tunnel with a network device. The **announcement filter** (a tc-BPF program on the egress of `gre1`) lets out the hellos and sequence-number PDUs, but of all LSPs only the watcher's own one, and only with the tunnel subnet as its prefix. Any other LSP, extra prefix or malformed PDU is dropped, so the watcher cannot populate the network with unexpected prefixes or forward the network's LSPs.
+
+#### Macvlan Mode
+The watcher's FRR gets a macvlan interface (`eth1`, private mode) on a host network interface, physical or a VLAN subinterface such as `ens192.100`, and forms an IS-IS adjacency directly with the network device on that L2 segment. There is no GRE tunnel, no iptables and no NAT. The announcement filter is always attached to `eth1` egress and passes only the watcher's own LSP; `eth1` is held down until the filter is attached, so a failed filter means no adjacency.
+
+Limits:
+* The router needs L2 reachability to the host interface (access port or VLAN) and point-to-point IS-IS on its side, with the same MTU.
+* The switch port must accept the watcher's extra MAC address: with port security, allow it; on a virtual switch allow MAC changes and forged transmits. Public clouds usually do not.
+* One watcher per host interface.
+* `onboarding/diagnostic.sh` covers GRE mode only.
+* `onboarding/stop.sh` and `containerlab destroy` remove the macvlan interface only; the host interface stays.
 
 #### BGP-LS Mode
 The watcher connects to a network router via BGP-LS (BGP Link-State) protocol. The router must be configured to advertise IS-IS topology information via BGP-LS. The watcher uses GoBGP (bgplswatcher) to establish a BGP session and receive BGP-LS updates, which are then processed by the IS-IS watcher component. This mode eliminates the need for GRE tunnels and IS-IS adjacencies, making it easier to deploy in environments where GRE tunnels are not feasible.
