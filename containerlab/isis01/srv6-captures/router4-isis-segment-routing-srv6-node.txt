@@ -1,0 +1,22 @@
+Area lab:
+ IS-IS L1 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0100.1001.0001  SPF        3           3                2                 5              
+ 0100.1001.0002  SPF        3           3                2                 5              
+ 0100.1001.0003  SPF        3           3                2                 5              
+ 0100.1001.0004  SPF        3           3                2                 5              
+ 0100.1001.0005  SPF        3           3                2                 5              
+
+ IS-IS L2 SRv6-Nodes:
+
+ System ID       Algorithm  SRH Max SL  SRH Max End Pop  SRH Max H.encaps  SRH Max End D  
+ -----------------------------------------------------------------------------------------
+ 0100.1001.0001  SPF        3           3                2                 5              
+ 0100.1001.0002  SPF        3           3                2                 5              
+ 0100.1001.0003  SPF        3           3                2                 5              
+ 0100.1001.0004  SPF        3           3                2                 5              
+ 0100.1001.0005  SPF        3           3                2                 5              
+ 0100.1001.0006  SPF        3           3                2                 5              
+

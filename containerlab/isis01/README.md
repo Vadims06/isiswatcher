@@ -2,7 +2,7 @@
 
 ![IS-IS watcher containerlab](container_lab.drawio.png)   
 
-This lab consists of 6 FRR routers and a single IS-IS Watcher. Each router is pre-configured to be part of an IS-IS domain with different network types. Any topology changes detected by the IS-IS Watcher are logged in the file `watcher/watcher.log`. The logging capabilities can be enhanced with tools like ELK or Topolograph, enabling features such as searching changes by time and exporting data to message brokers, Zabbix, and more. For further details, refer to the Links page.
+This lab consists of 6 FRR routers (FRR 10.8, SRv6 enabled on every router) and a single IS-IS Watcher. Each router is pre-configured to be part of an IS-IS domain with different network types. Any topology changes detected by the IS-IS Watcher are logged in the file `watcher/watcher.log`. The logging capabilities can be enhanced with tools like ELK or Topolograph, enabling features such as searching changes by time and exporting data to message brokers, Zabbix, and more. For further details, refer to the Links page.
 
 ### IS-IS Topology Watcher
 IS-IS Watcher is a monitoring tool of IS-IS topology changes for network engineers. It works via passively listening to IS-IS control plane messages through a specially established IS-IS adjacency between IS-IS Watcher and one of the network device. *It assists in analyzing incidents by determining the precise time and location of events, as well as their distribution across the network in a retrospective manner.*  

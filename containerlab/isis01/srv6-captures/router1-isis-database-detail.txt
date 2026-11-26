@@ -1,0 +1,747 @@
+Area lab:
+IS-IS Level-1 link-state database:
+LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL
+0100.1001.0001.00-00 *    322   0x00000004  0x7b9f    1072    1/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  TE Router ID: 10.10.10.1
+  Router Capability: 10.10.10.1 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0003.00 (Metric: 10)
+    Admin Group: 0x647a0001
+      Bit positions: 0, 17, 19, 20, 21, 22, 26, 29, 30
+    Local Interface IP Address(es): 192.168.13.1
+    Remote Interface IP Address(es): 192.168.13.3
+    Local Interface IPv6 Address(es): 3ffe::192:168:13:1
+    Remote Interface IPv6 Address(es): 3ffe::192:168:13:3
+    Maximum Bandwidth: 1e+08 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.23e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.23e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 111111
+    SRv6 End.X SID: fc00:0:1:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.1
+  Extended IP Reachability: 192.168.13.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.1/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:1::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:13:0/127 (Metric: 10)
+  SRv6 Locator: fc00:0:1::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:1::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0002.00-00      331   0x00000004  0x0aef    1070    1/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router2
+  TE Router ID: 10.10.10.2
+  Router Capability: 10.10.10.2 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0003.00 (Metric: 10)
+    Admin Group: 0x647a0001
+      Bit positions: 0, 17, 19, 20, 21, 22, 26, 29, 30
+    Local Interface IP Address(es): 192.168.23.1
+    Remote Interface IP Address(es): 192.168.23.2
+    Local Interface IPv6 Address(es): 3ffe::192:168:23:2
+    Remote Interface IPv6 Address(es): 3ffe::192:168:23:3
+    Maximum Bandwidth: 1e+08 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.2e+06 (Bytes/sec),	[1]: 1.21e+06 (Bytes/sec)
+      [2]: 1.22e+06 (Bytes/sec),	[3]: 1.23e+06 (Bytes/sec)
+      [4]: 1.24e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 23
+    SRv6 End.X SID: fc00:0:2:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.2
+  Extended IP Reachability: 192.168.23.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.2/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:2::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:23:2/127 (Metric: 10)
+  SRv6 Locator: fc00:0:2::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:2::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0003.00-00      751   0x00000006  0x1359    1062    1/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router3
+  TE Router ID: 10.10.10.3
+  Router Capability: 10.10.10.3 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0001.00 (Metric: 10)
+    Local Interface IP Address(es): 192.168.13.3
+    Remote Interface IP Address(es): 192.168.13.1
+    Local Interface IPv6 Address(es): 3ffe::192:168:13:3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:13:1
+    Maximum Bandwidth: 1.25e+07 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.25e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    SRv6 End.X SID: fc00:0:3:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0100.1001.0002.00 (Metric: 10)
+    Local Interface IP Address(es): 192.168.23.2
+    Remote Interface IP Address(es): 192.168.23.1
+    Local Interface IPv6 Address(es): 3ffe::192:168:23:3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:23:2
+    Maximum Bandwidth: 1.25e+07 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.25e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 32
+    SRv6 End.X SID: fc00:0:3:3::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.5
+    Local Interface IPv6 Address(es): 3ffe::192:168:145:3
+    Remote Interface IPv6 Address(es): 3ffe:10::5:0:0:84
+    SRv6 Lan End.X SID: fc00:0:3:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:4::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:4::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.3
+  Extended IP Reachability: 192.168.13.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.23.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.36.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.3/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:3::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:13:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:23:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:145:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:36:2/127 (Metric: 10)
+  SRv6 Locator: fc00:0:3::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:3::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0004.00-00      382   0x00000006  0x620d    1092    1/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router4
+  TE Router ID: 10.10.10.4
+  Router Capability: 10.10.10.4 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.5
+    Local Interface IPv6 Address(es): 3ffe::192:168:145:4
+    Remote Interface IPv6 Address(es): 3ffe::192:168:145:3
+    SRv6 Lan End.X SID: fc00:0:4:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.4
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.4/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:4::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:145:4/127 (Metric: 10)
+  SRv6 Locator: fc00:0:4::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:4::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0005.00-00     1483   0x00000006  0x18cf    1102    1/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router5
+  TE Router ID: 10.10.10.5
+  Router Capability: 10.10.10.5 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:145:3
+    SRv6 Lan End.X SID: fc00:0:5:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.5
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  IPv6 Reachability: fc00:0:5::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe:10::5:0:0:84/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:dc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:20/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:66/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:58/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ae/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:42/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:cc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:da/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:74/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ce/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:64/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:76/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:aa/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ec/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:56/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:bc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:10/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:40/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:96/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:90/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:38/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:30/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:54/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:88/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:46/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a4/127 (Metric: 10)
+
+0100.1001.0005.00-01     1491   0x00000004  0x8559    1102    1/0/0
+  IPv6 Reachability: 3ffe:10::5:0:0:a6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:14/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:100/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:28/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fe/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:22/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:48/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:62/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:145:4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:24/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:44/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ba/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:18/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:34/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:52/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:80/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:12/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:60/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:68/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:94/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:26/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:70/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:98/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:32/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:86/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ca/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:de/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:50/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:72/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:be/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ee/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:36/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a8/127 (Metric: 10)
+
+0100.1001.0005.00-02      273   0x00000004  0x659e    1102    1/0/0
+  IPv6 Reachability: 3ffe:10::5:0:0:ac/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fa/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:16/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:78/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:82/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:92/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ea/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5a/127 (Metric: 10)
+  SRv6 Locator: fc00:0:5::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:5::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0005.0f-00       62   0x00000001  0xb0a3    1103    1/0/0
+  Extended Reachability: 0100.1001.0005.00 (Metric: 0)
+  Extended Reachability: 0100.1001.0004.00 (Metric: 0)
+  Extended Reachability: 0100.1001.0003.00 (Metric: 0)
+
+    8 LSPs
+
+IS-IS Level-2 link-state database:
+LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL
+0100.1001.0001.00-00 *    322   0x00000004  0x73af    1070    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  TE Router ID: 10.10.10.1
+  Router Capability: 10.10.10.1 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0003.00 (Metric: 10)
+    Admin Group: 0x647a0001
+      Bit positions: 0, 17, 19, 20, 21, 22, 26, 29, 30
+    Local Interface IP Address(es): 192.168.13.1
+    Remote Interface IP Address(es): 192.168.13.3
+    Local Interface IPv6 Address(es): 3ffe::192:168:13:1
+    Remote Interface IPv6 Address(es): 3ffe::192:168:13:3
+    Maximum Bandwidth: 1e+08 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.23e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.23e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 111111
+    SRv6 End.X SID: fc00:0:1:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.1
+  Extended IP Reachability: 192.168.13.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.1/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:1::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:13:0/127 (Metric: 10)
+  SRv6 Locator: fc00:0:1::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:1::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0002.00-00      331   0x00000004  0x02ff    1104    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router2
+  TE Router ID: 10.10.10.2
+  Router Capability: 10.10.10.2 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0003.00 (Metric: 10)
+    Admin Group: 0x647a0001
+      Bit positions: 0, 17, 19, 20, 21, 22, 26, 29, 30
+    Local Interface IP Address(es): 192.168.23.1
+    Remote Interface IP Address(es): 192.168.23.2
+    Local Interface IPv6 Address(es): 3ffe::192:168:23:2
+    Remote Interface IPv6 Address(es): 3ffe::192:168:23:3
+    Maximum Bandwidth: 1e+08 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.2e+06 (Bytes/sec),	[1]: 1.21e+06 (Bytes/sec)
+      [2]: 1.22e+06 (Bytes/sec),	[3]: 1.23e+06 (Bytes/sec)
+      [4]: 1.24e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 23
+    SRv6 End.X SID: fc00:0:2:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.2
+  Extended IP Reachability: 192.168.23.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.2/32 (Metric: 10)
+  IPv6 Reachability: fc00:0:2::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:23:2/127 (Metric: 10)
+  SRv6 Locator: fc00:0:2::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:2::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0003.00-00      903   0x00000006  0xd760    1074    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router3
+  TE Router ID: 10.10.10.3
+  Router Capability: 10.10.10.3 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0001.00 (Metric: 10)
+    Local Interface IP Address(es): 192.168.13.3
+    Remote Interface IP Address(es): 192.168.13.1
+    Local Interface IPv6 Address(es): 3ffe::192:168:13:3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:13:1
+    Maximum Bandwidth: 1.25e+07 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.25e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    SRv6 End.X SID: fc00:0:3:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0100.1001.0002.00 (Metric: 10)
+    Local Interface IP Address(es): 192.168.23.2
+    Remote Interface IP Address(es): 192.168.23.1
+    Local Interface IPv6 Address(es): 3ffe::192:168:23:3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:23:2
+    Maximum Bandwidth: 1.25e+07 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.25e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 32
+    SRv6 End.X SID: fc00:0:3:3::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.5
+    Local Interface IPv6 Address(es): 3ffe::192:168:145:3
+    Remote Interface IPv6 Address(es): 3ffe:10::5:0:0:84
+    SRv6 Lan End.X SID: fc00:0:3:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:4::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:3:4::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  Extended Reachability: 0100.1001.0006.17 (Metric: 10)
+    Local Interface IP Address(es): 192.168.36.3
+    Remote Interface IP Address(es): 192.168.36.6
+    Local Interface IPv6 Address(es): 3ffe::192:168:36:3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:36:6
+    Maximum Bandwidth: 1.25e+07 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.25e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.25e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    SRv6 Lan End.X SID: fc00:0:3:5::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0006
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.3
+  Extended IP Reachability: 192.168.13.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.23.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  Extended IP Reachability: 192.168.36.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.3/32 (Metric: 10)
+  Extended IP Reachability: 8.8.8.8/32 (Metric: 11)
+  IPv6 Reachability: fc00:0:3::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:13:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:23:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:145:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:36:2/127 (Metric: 10)
+  SRv6 Locator: fc00:0:3::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:3::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0004.00-00      391   0x00000006  0xe949    1083    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router4
+  TE Router ID: 10.10.10.4
+  Router Capability: 10.10.10.4 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.5
+    Local Interface IPv6 Address(es): 3ffe::192:168:145:4
+    Remote Interface IPv6 Address(es): 3ffe::192:168:145:3
+    SRv6 Lan End.X SID: fc00:0:4:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:4:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0005
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.4
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.4/32 (Metric: 10)
+  Extended IP Reachability: 4.4.4.4/32 (Metric: 11)
+  IPv6 Reachability: fc00:0:4::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:145:4/127 (Metric: 10)
+  SRv6 Locator: fc00:0:4::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:4::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0005.00-00     1492   0x00000006  0x4661    1057    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router5
+  TE Router ID: 10.10.10.5
+  Router Capability: 10.10.10.5 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0005.0f (Metric: 10)
+    Remote Interface IP Address(es): 192.168.145.3
+    Remote Interface IPv6 Address(es): 3ffe::192:168:145:3
+    SRv6 Lan End.X SID: fc00:0:5:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0004
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+    SRv6 Lan End.X SID: fc00:0:5:2::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.5
+  Extended IP Reachability: 192.168.145.0/24 (Metric: 10)
+  Extended IP Reachability: 5.5.5.5/32 (Metric: 11)
+  IPv6 Reachability: fc00:0:5::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe:10::5:0:0:84/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:dc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:20/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:66/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:58/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ae/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:42/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:cc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:da/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:74/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ce/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:64/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:76/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:aa/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ec/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:56/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:bc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:10/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:40/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:96/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:90/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:38/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:30/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:54/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:88/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:1c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:46/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a4/127 (Metric: 10)
+
+0100.1001.0005.00-01     1491   0x00000004  0x7d69    1057    0/0/0
+  IPv6 Reachability: 3ffe:10::5:0:0:a6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:14/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:9c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:100/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:28/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fe/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:22/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:48/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:62/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe::192:168:145:4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:24/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:2a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:3c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:44/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ba/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:18/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:34/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:52/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:80/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e0/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:12/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:60/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:68/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:94/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:b6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:d4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e4/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:8e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:e6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fc/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:26/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:70/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:7e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:98/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:32/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6e/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:86/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ca/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:de/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:f2/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:4a/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:50/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:72/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:be/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ee/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:36/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:6c/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:a8/127 (Metric: 10)
+
+0100.1001.0005.00-02      273   0x00000004  0x5dae    1057    0/0/0
+  IPv6 Reachability: 3ffe:10::5:0:0:ac/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:fa/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:16/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:78/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:82/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:92/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:c8/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:ea/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::5:0:0:5a/127 (Metric: 10)
+  SRv6 Locator: fc00:0:5::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:5::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0005.0f-00       62   0x00000001  0xa8b3    1064    0/0/0
+  Extended Reachability: 0100.1001.0005.00 (Metric: 0)
+  Extended Reachability: 0100.1001.0004.00 (Metric: 0)
+  Extended Reachability: 0100.1001.0003.00 (Metric: 0)
+
+0100.1001.0006.00-00      368   0x00000004  0x5d5a    1079    0/0/0
+  Protocols Supported: IPv4, IPv6
+  Area Address: 49.0001
+  Hostname: router6
+  TE Router ID: 10.10.10.6
+  Router Capability: 10.10.10.6 , D:0, S:0
+    SR Algorithm:
+      0: SPF
+    SRv6: O:0
+  Extended Reachability: 0100.1001.0006.17 (Metric: 10)
+    Admin Group: 0x647a0001
+      Bit positions: 0, 17, 19, 20, 21, 22, 26, 29, 30
+    Local Interface IP Address(es): 192.168.36.6
+    Remote Interface IP Address(es): 192.168.36.3
+    Local Interface IPv6 Address(es): 3ffe:10::6:0:0:10
+    Remote Interface IPv6 Address(es): 3ffe::192:168:36:3
+    Maximum Bandwidth: 1.25e+06 (Bytes/sec)
+    Maximum Reservable Bandwidth: 1.25e+06 (Bytes/sec)
+    Unreserved Bandwidth:
+      [0]: 1.23e+06 (Bytes/sec),	[1]: 1.25e+06 (Bytes/sec)
+      [2]: 1.25e+06 (Bytes/sec),	[3]: 1.25e+06 (Bytes/sec)
+      [4]: 1.25e+06 (Bytes/sec),	[5]: 1.23e+06 (Bytes/sec)
+      [6]: 1.25e+06 (Bytes/sec),	[7]: 1.25e+06 (Bytes/sec)
+    Traffic Engineering Metric: 63
+    SRv6 Lan End.X SID: fc00:0:6:1::, Algorithm: SPF, Weight: 0, Endpoint Behavior: End.X, Flags: B:0, S:0, P:0 Neighbor-ID: 0100.1001.0003
+        SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+  IPv4 Interface Address: 10.10.10.6
+  Extended IP Reachability: 192.168.36.0/24 (Metric: 10)
+  Extended IP Reachability: 10.10.10.6/32 (Metric: 10)
+  Extended IP Reachability: 6.6.6.6/32 (Metric: 11)
+  IPv6 Reachability: fc00:0:6::/48 (Metric: 0)
+  IPv6 Reachability: 3ffe::192:168:36:6/127 (Metric: 10)
+  IPv6 Reachability: 3ffe:10::6:0:0:10/127 (Metric: 10)
+  SRv6 Locator: fc00:0:6::/48 (Metric: 0) standard
+    Sub-TLVs:
+      SRv6 End SID Endpoint Behavior: End, SID value: fc00:0:6::
+        Sub-Sub-TLVs:
+          SRv6 SID Structure Locator Block length: 32, Locator Node length: 16, Function length: 16, Argument length: 0, 
+
+0100.1001.0006.17-00       51   0x00000001  0xe58d    1106    0/0/0
+  Extended Reachability: 0100.1001.0006.00 (Metric: 0)
+  Extended Reachability: 0100.1001.0003.00 (Metric: 0)
+
+    10 LSPs
+
